@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Poképull · Randomiser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="legendary-data.js"></script>
+<script src="move-types.js"></script>
+<style>
+  :root{
+    --ink:#080a14;
+    --navy-900:#0b0e1c;
+    --navy-800:#12162a;
+    --navy-700:#1a2038;
+    --navy-600:#242c4a;
+    --card-edge:#2c3557;
+    --coral:#ef4a5f;
+    --coral-dim:#8c2734;
+    --gold:#f5c451;
+    --gold-dim:#a9852f;
+    --holo-a:#7ee7d8;
+    --holo-b:#c893ff;
+    --holo-c:#ffd166;
+    --text-hi:#f4f2ff;
+    --text-lo:#9aa0c3;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(126,231,216,0.10), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 110% 10%, rgba(200,147,255,0.12), transparent 55%),
+      radial-gradient(ellipse 900px 700px at 50% 120%, rgba(239,74,95,0.10), transparent 60%),
+      var(--ink);
+    color:var(--text-hi);
+    font-family:'Manrope', sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .font-display{ font-family:'Bungee', cursive; }
+
+  /* grain overlay */
+  .grain{
+    position:fixed; inset:0; pointer-events:none; z-index:50; opacity:0.05; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .phone-shell{
+    max-width:430px; margin:0 auto; min-height:100vh;
+    position:relative; z-index:1;
+    padding:28px 18px 60px;
+  }
+
+  .pokeball-spin{
+    animation:spin 900ms cubic-bezier(.34,1.56,.64,1) infinite;
+  }
+  @keyframes spin{ from{ transform:rotate(0deg);} to{ transform:rotate(360deg);} }
+
+  .btn-spring{ transition:transform 260ms cubic-bezier(.34,1.56,.64,1), box-shadow 260ms cubic-bezier(.34,1.56,.64,1), filter 200ms ease; }
+  .btn-spring:hover{ transform:translateY(-2px) scale(1.015); }
+  .btn-spring:active{ transform:translateY(1px) scale(0.97); }
+  .btn-spring:focus-visible{ outline:2px solid var(--holo-a); outline-offset:3px; }
+
+  .chip{ transition:transform 200ms cubic-bezier(.34,1.56,.64,1), background-color 200ms ease, border-color 200ms ease; }
+  .chip:hover{ transform:translateY(-1px); }
+  .chip:active{ transform:translateY(0) scale(0.97); }
+  .chip:focus-visible{ outline:2px solid var(--holo-a); outline-offset:2px; }
+
+  .card-surface{
+    background:linear-gradient(160deg, var(--navy-700) 0%, var(--navy-800) 55%, var(--navy-900) 100%);
+    border:1px solid var(--card-edge);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.04) inset,
+      0 18px 40px -18px rgba(0,0,0,0.65),
+      0 4px 18px -6px rgba(239,74,95,0.10);
+  }
+
+  .holo-sheen{
+    position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+    background:linear-gradient(115deg, transparent 20%, rgba(126,231,216,0.10) 35%, rgba(200,147,255,0.14) 48%, rgba(255,209,102,0.10) 60%, transparent 78%);
+    mix-blend-mode:screen;
+    opacity:0.85;
+  }
+
+  .reveal-in{
+    animation:revealIn 560ms cubic-bezier(.2,.9,.25,1.15) both;
+  }
+  @keyframes revealIn{
+    0%{ opacity:0; transform:translateY(18px) scale(0.94) rotateX(8deg); }
+    100%{ opacity:1; transform:translateY(0) scale(1) rotateX(0deg); }
+  }
+
+  .flip-card{ perspective:1200px; }
+  .flip-inner{
+    position:relative; width:100%; transition:transform 520ms cubic-bezier(.2,.9,.25,1.05);
+    transform-style:preserve-3d;
+  }
+  .flip-card.flipped .flip-inner{ transform:rotateY(180deg); }
+  .flip-face{ backface-visibility:hidden; }
+  .flip-back{ position:absolute; inset:0; transform:rotateY(180deg); }
+
+  .sprite-glow{
+    filter:drop-shadow(0 8px 22px rgba(0,0,0,0.55));
+  }
+
+  .type-badge{
+    font-weight:800; font-size:11px; letter-spacing:0.06em; text-transform:uppercase;
+    padding:4px 10px; border-radius:999px; color:#0b0e1c;
+    box-shadow:0 2px 8px -2px rgba(0,0,0,0.5);
+  }
+
+  .scrollbar-slim::-webkit-scrollbar{ width:6px; height:6px; }
+  .scrollbar-slim::-webkit-scrollbar-thumb{ background:var(--card-edge); border-radius:99px; }
+
+  select.custom-select{
+    appearance:none; -webkit-appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239aa0c3'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 14px center;
+  }
+
+  .signature-glow{
+    background:linear-gradient(90deg, rgba(255,209,102,0.16), rgba(200,147,255,0.10));
+    border:1px solid rgba(245,196,81,0.4);
+  }
+
+  .loader-dot{ animation:pulseDot 900ms ease-in-out infinite; }
+  .loader-dot:nth-child(2){ animation-delay:150ms; }
+  .loader-dot:nth-child(3){ animation-delay:300ms; }
+  @keyframes pulseDot{ 0%,100%{ opacity:0.25; transform:scale(0.85);} 50%{ opacity:1; transform:scale(1.1);} }
+
+  details > summary{ list-style:none; cursor:pointer; }
+  details > summary::-webkit-details-marker{ display:none; }
+  .chevron{ transition:transform 260ms cubic-bezier(.34,1.56,.64,1); }
+  details[open] .chevron{ transform:rotate(180deg); }
+
+  .pdx-open-btn{ transition:transform 200ms cubic-bezier(.34,1.56,.64,1), border-color 200ms ease, color 200ms ease; }
+  .pdx-open-btn:hover{ transform:translateY(-1px); border-color:var(--pdx-cyan); color:var(--pdx-cyan); }
+  .pdx-open-btn:active{ transform:translateY(0) scale(0.97); }
+  .pdx-open-btn:focus-visible{ outline:2px solid var(--pdx-cyan); outline-offset:2px; }
+
+  /* ---- Pokédex showcase modal ---- */
+  #pokedexModal{
+    --pdx-bg:#050a12;
+    --pdx-panel:#0d1a28;
+    --pdx-edge:rgba(122,214,255,0.35);
+    --pdx-cyan:#7fd8ff;
+    --pdx-cyan-dim:#2f7a9e;
+    font-family:'Manrope', sans-serif;
+  }
+  #pokedexModal.hidden{ display:none; }
+  .pdx-backdrop{
+    position:absolute; inset:0;
+    background:
+      radial-gradient(ellipse 700px 500px at 50% -5%, rgba(122,214,255,0.14), transparent 60%),
+      radial-gradient(ellipse 500px 400px at 90% 100%, rgba(122,214,255,0.08), transparent 60%),
+      var(--pdx-bg);
+  }
+  .pdx-nav-btn{
+    width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    border:1px solid var(--pdx-edge); color:var(--pdx-cyan); background:rgba(122,214,255,0.06);
+    transition:transform 200ms cubic-bezier(.34,1.56,.64,1), background 200ms ease;
+  }
+  .pdx-nav-btn:hover{ background:rgba(122,214,255,0.16); transform:translateY(-1px); }
+  .pdx-nav-btn:active{ transform:scale(0.92); }
+  .pdx-nav-btn:focus-visible{ outline:2px solid var(--pdx-cyan); outline-offset:2px; }
+
+  .pdx-label{ font-size:11px; text-transform:uppercase; letter-spacing:0.14em; color:var(--pdx-cyan); font-weight:800; }
+  .pdx-sublabel{ font-size:11px; color:#7691a8; margin-bottom:2px; }
+  .pdx-value{ font-size:14px; font-weight:800; color:#eaf6ff; }
+
+  .pdx-ring-wrap{ position:relative; width:240px; height:240px; margin:22px auto 6px; display:flex; align-items:center; justify-content:center; }
+
+  .pdx-starfield{
+    position:absolute; inset:-34px; border-radius:50%; overflow:hidden; opacity:0.65;
+    background-image:
+      radial-gradient(1.5px 1.5px at 10% 20%, #ffffff 100%, transparent),
+      radial-gradient(1px 1px at 25% 65%, #7fd8ff 100%, transparent),
+      radial-gradient(1px 1px at 40% 12%, #ffffff 100%, transparent),
+      radial-gradient(1.5px 1.5px at 55% 82%, #c893ff 100%, transparent),
+      radial-gradient(1px 1px at 70% 32%, #ffffff 100%, transparent),
+      radial-gradient(1px 1px at 85% 60%, #7fd8ff 100%, transparent),
+      radial-gradient(1.5px 1.5px at 15% 90%, #ffffff 100%, transparent),
+      radial-gradient(1px 1px at 92% 15%, #ffffff 100%, transparent),
+      radial-gradient(1px 1px at 60% 48%, #ffb6d5 100%, transparent),
+      radial-gradient(1px 1px at 35% 42%, #ffffff 100%, transparent),
+      radial-gradient(1px 1px at 6% 55%, #ffffff 100%, transparent),
+      radial-gradient(1px 1px at 78% 88%, #c893ff 100%, transparent);
+    background-size:160px 160px;
+    background-repeat:repeat;
+    animation:pdxTwinkle 4s ease-in-out infinite alternate;
+  }
+  @keyframes pdxTwinkle{ from{ opacity:0.4; } to{ opacity:0.8; } }
+
+  .pdx-ring{ position:absolute; border-radius:50%; border:1px solid var(--pdx-edge); }
+  .pdx-ring-1{ inset:0; }
+  .pdx-ring-2{ inset:16px; border-color:rgba(122,214,255,0.2); }
+  .pdx-ring-glow{
+    position:absolute; inset:22px; border-radius:50%;
+    background:radial-gradient(circle, rgba(122,214,255,0.22), rgba(122,214,255,0.04) 65%, transparent 75%);
+    animation:pdxPulse 3s ease-in-out infinite;
+  }
+  @keyframes pdxPulse{ 0%,100%{ opacity:0.75; } 50%{ opacity:1; } }
+
+  /* animated HUD border: smooth circular lines, each with a bright arc segment rotating around it */
+  .pdx-ring-arc{
+    position:absolute; border-radius:50%;
+    background:conic-gradient(from 0deg, rgba(122,214,255,0.95), rgba(122,214,255,0.35) 18%, rgba(122,214,255,0) 34%, rgba(122,214,255,0) 100%);
+  }
+  .pdx-ring-arc-outer{
+    inset:-6px;
+    -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+    mask:radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+    animation:pdxSpin 7s linear infinite;
+  }
+  .pdx-ring-arc-inner{
+    inset:14px;
+    -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 1.5px));
+    mask:radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 1.5px));
+    animation:pdxSpin 10s linear infinite reverse;
+  }
+  @keyframes pdxSpin{ from{ transform:rotate(0deg);} to{ transform:rotate(360deg);} }
+
+  .pdx-panel{
+    background:linear-gradient(160deg, rgba(23,40,58,0.85), rgba(8,14,22,0.9));
+    border:1px solid var(--pdx-edge); border-radius:20px; padding:18px;
+    box-shadow:0 14px 32px -16px rgba(0,0,0,0.6);
+  }
+
+  .pdx-type-pill{
+    display:flex; align-items:center; gap:10px; padding:9px 18px; border-radius:999px;
+    font-weight:800; font-size:13px; color:#08131c;
+  }
+  .pdx-type-pill .pdx-dot{ width:13px; height:13px; border-radius:50%; border:2px solid rgba(8,19,28,0.55); }
+  .pdx-weak-pill{ padding:9px 18px; border-radius:999px; font-weight:800; font-size:13px; color:#08131c; }
+
+  .pdx-stat-row{ display:flex; align-items:center; gap:10px; }
+  .pdx-stat-label{ width:32px; font-size:10px; font-weight:800; color:#7691a8; letter-spacing:0.04em; }
+  .pdx-stat-num{ width:28px; font-size:11px; font-weight:700; color:var(--text-lo); text-align:right; }
+  .pdx-stat-track{ flex:1; height:9px; border-radius:5px; background:rgba(122,214,255,0.1); overflow:hidden; }
+  .pdx-stat-fill{
+    height:100%; border-radius:5px;
+    background-image:
+      repeating-linear-gradient(90deg, rgba(5,10,18,0.4) 0 2px, transparent 2px 8px),
+      linear-gradient(90deg, var(--pdx-cyan-dim), var(--pdx-cyan));
+    animation:pdxFillIn 700ms cubic-bezier(.2,.9,.25,1.05) both;
+  }
+  @keyframes pdxFillIn{ from{ transform:scaleX(0); } to{ transform:scaleX(1); } }
+  .pdx-stat-fill{ transform-origin:left; }
+
+  .pdx-style-card{
+    min-width:118px; background:var(--pdx-panel); border:1px solid var(--pdx-edge); border-radius:18px;
+    padding:14px 10px; text-align:center; flex-shrink:0;
+    transition:transform 200ms cubic-bezier(.34,1.56,.64,1), border-color 200ms ease;
+  }
+  .pdx-style-card:hover{ transform:translateY(-2px); border-color:var(--pdx-cyan); }
+  .pdx-style-ring{
+    width:74px; height:74px; margin:0 auto 8px; border-radius:50%;
+    border:2px solid var(--pdx-edge); display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(circle, rgba(122,214,255,0.16), transparent 70%);
+  }
+
+  .pdx-ability-info{
+    width:16px; height:16px; border-radius:50%; border:1px solid var(--pdx-cyan); color:var(--pdx-cyan);
+    font-size:10px; font-weight:800; display:inline-flex; align-items:center; justify-content:center;
+    margin-left:6px; transition:background 200ms ease;
+  }
+  .pdx-ability-info:hover{ background:rgba(122,214,255,0.16); }
+</style>
+</head>
+<body>
+<div class="grain"></div>
+
+<div class="phone-shell">
+
+  <!-- Header -->
+  <header class="mb-7">
+    <div class="flex items-center gap-3 mb-1">
+      <div class="w-9 h-9 rounded-full flex items-center justify-center" style="background:conic-gradient(from 180deg, var(--coral) 0 50%, #f4f2ff 50% 100%); border:2px solid var(--navy-900); box-shadow:0 0 0 2px var(--card-edge);">
+        <div class="w-3 h-3 rounded-full bg-[var(--navy-900)] border-2 border-[var(--card-edge)]"></div>
+      </div>
+      <p class="text-[11px] tracking-[0.25em] uppercase" style="color:var(--text-lo)">Gen I – IX</p>
+    </div>
+    <h1 class="font-display text-[32px] leading-[1.05] tracking-[-0.01em]" style="color:var(--text-hi)">
+      Poké<span style="color:var(--gold)">pull</span>
+    </h1>
+    <p class="text-sm mt-2 leading-relaxed" style="color:var(--text-lo)">Pick one to three Pokémon from every generation.</p>
+  </header>
+
+  <!-- Controls -->
+  <section class="card-surface rounded-3xl p-5 mb-6 relative overflow-hidden">
+    <div class="holo-sheen"></div>
+    <div class="relative">
+
+      <!-- Legendary toggle -->
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <p class="text-[13px] font-extrabold" style="color:var(--text-hi)">Legendary mode</p>
+          <p class="text-[11px] mt-0.5" style="color:var(--text-lo)">Only Legendary &amp; Mythical Pokémon</p>
+        </div>
+        <button id="legendaryToggle" type="button" aria-pressed="false"
+          class="btn-spring relative w-14 h-8 rounded-full shrink-0"
+          style="background:var(--navy-600); border:1px solid var(--card-edge);">
+          <span id="toggleKnob" class="absolute top-[3px] left-[3px] w-[26px] h-[26px] rounded-full transition-transform duration-300"
+            style="background:linear-gradient(160deg, var(--text-hi), #cfd3ee); box-shadow:0 2px 6px rgba(0,0,0,0.4);"></span>
+        </button>
+      </div>
+
+      <!-- Pick count -->
+      <div class="mb-5">
+        <p class="text-[13px] font-extrabold mb-2.5" style="color:var(--text-hi)">Number of picks</p>
+        <div class="grid grid-cols-3 gap-2" id="pickCountGroup">
+          <button data-count="1" class="chip pick-count-btn rounded-xl py-2.5 text-sm font-bold" style="background:var(--navy-600); border:1px solid var(--card-edge); color:var(--text-lo)">1</button>
+          <button data-count="2" class="chip pick-count-btn rounded-xl py-2.5 text-sm font-bold" style="background:var(--navy-600); border:1px solid var(--card-edge); color:var(--text-lo)">2</button>
+          <button data-count="3" class="chip pick-count-btn rounded-xl py-2.5 text-sm font-bold" style="background:var(--navy-600); border:1px solid var(--card-edge); color:var(--text-lo)">3</button>
+        </div>
+      </div>
+
+      <!-- Randomize button -->
+      <button id="randomizeBtn" type="button" class="btn-spring w-full rounded-2xl py-4 font-display text-[15px] tracking-wide relative overflow-hidden"
+        style="background:linear-gradient(140deg, var(--coral) 0%, #d43a52 100%); color:#fff8f4; box-shadow:0 10px 28px -10px rgba(239,74,95,0.55), 0 2px 0 rgba(255,255,255,0.15) inset;">
+        <span class="relative z-10 flex items-center justify-center gap-2">
+          <svg id="btnBallIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" class="shrink-0">
+            <circle cx="12" cy="12" r="10" fill="#fff8f4"/>
+            <path d="M2 12h20" stroke="#0b0e1c" stroke-width="2"/>
+            <path d="M12 2a10 10 0 0 1 9.8 8H2.2A10 10 0 0 1 12 2Z" fill="#ef4a5f"/>
+            <circle cx="12" cy="12" r="3.2" fill="#fff8f4" stroke="#0b0e1c" stroke-width="1.6"/>
+          </svg>
+          <span id="btnLabel">Randomise</span>
+        </span>
+      </button>
+    </div>
+  </section>
+
+  <!-- Results -->
+  <section id="resultsWrap" class="space-y-5"></section>
+
+  <!-- Empty state -->
+  <div id="emptyState" class="text-center py-14">
+    <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style="background:var(--navy-800); border:1px solid var(--card-edge);">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="var(--text-lo)" stroke-width="1.6"/><path d="M3 12h18" stroke="var(--text-lo)" stroke-width="1.6"/><circle cx="12" cy="12" r="2.6" stroke="var(--text-lo)" stroke-width="1.6"/></svg>
+    </div>
+    <p class="text-sm" style="color:var(--text-lo)">No pulls yet. Tap <span class="font-bold" style="color:var(--text-hi)">Randomise</span> to open your pack.</p>
+  </div>
+
+  <footer class="text-center pt-8">
+    <p class="text-[11px]" style="color:var(--text-lo)">Sprites via PokéAPI · Dex #1–1025 · Competitive sets are suggested starting points, not guarantees.</p>
+  </footer>
+
+</div>
+
+<!-- Pokédex showcase modal -->
+<div id="pokedexModal" class="fixed inset-0 z-[999] hidden">
+  <div class="pdx-backdrop"></div>
+  <div class="relative h-full overflow-y-auto scrollbar-slim">
+    <div class="max-w-[430px] mx-auto px-5 pt-6 pb-16">
+
+      <div class="flex items-center justify-between mb-3">
+        <button id="pdxPrev" type="button" class="pdx-nav-btn" aria-label="Previous">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button id="pdxClose" type="button" class="text-[11px] font-extrabold uppercase tracking-[0.2em]" style="color:var(--pdx-cyan)">Close</button>
+        <button id="pdxNext" type="button" class="pdx-nav-btn" aria-label="Next">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+
+      <div class="text-center">
+        <span id="pdxDexNo" class="text-[11px] font-mono" style="color:var(--pdx-cyan-dim)"></span>
+        <h2 id="pdxName" class="font-display text-[26px] leading-tight mt-1" style="color:#eaf6ff; text-shadow:0 0 18px rgba(122,214,255,0.35)"></h2>
+      </div>
+
+      <div class="pdx-ring-wrap">
+        <div class="pdx-starfield"></div>
+        <div class="pdx-ring-glow"></div>
+        <div class="pdx-ring pdx-ring-1"></div>
+        <div class="pdx-ring pdx-ring-2"></div>
+        <div class="pdx-ring-arc pdx-ring-arc-outer"></div>
+        <div class="pdx-ring-arc pdx-ring-arc-inner"></div>
+        <img id="pdxSprite" src="" alt="" class="relative w-40 h-40 sprite-glow" />
+      </div>
+
+      <div id="pdxLoading" class="text-center py-10">
+        <div class="flex items-center justify-center gap-2">
+          <span class="loader-dot w-2.5 h-2.5 rounded-full" style="background:var(--pdx-cyan)"></span>
+          <span class="loader-dot w-2.5 h-2.5 rounded-full" style="background:var(--pdx-cyan)"></span>
+          <span class="loader-dot w-2.5 h-2.5 rounded-full" style="background:var(--pdx-cyan)"></span>
+        </div>
+      </div>
+
+      <div id="pdxContent" class="hidden space-y-6 mt-2">
+
+        <div class="grid grid-cols-2 gap-5">
+          <div>
+            <p class="pdx-label mb-2">Type</p>
+            <div id="pdxTypes" class="flex flex-col gap-2"></div>
+          </div>
+          <div>
+            <p class="pdx-label mb-2">Weakness</p>
+            <div id="pdxWeak" class="flex flex-col gap-2"></div>
+          </div>
+        </div>
+
+        <div class="pdx-panel grid grid-cols-2 gap-x-4 gap-y-4">
+          <div><p class="pdx-sublabel">Height</p><p id="pdxHeight" class="pdx-value"></p></div>
+          <div><p class="pdx-sublabel">Category</p><p id="pdxCategory" class="pdx-value"></p></div>
+          <div><p class="pdx-sublabel">Weight</p><p id="pdxWeight" class="pdx-value"></p></div>
+          <div><p class="pdx-sublabel">Gender</p><p id="pdxGender" class="pdx-value"></p></div>
+          <div class="col-span-2">
+            <p class="pdx-sublabel">Ability <button id="pdxAbilityInfo" type="button" class="pdx-ability-info">?</button></p>
+            <p id="pdxAbility" class="pdx-value"></p>
+            <p id="pdxAbilityEffect" class="hidden text-xs mt-1.5 leading-relaxed" style="color:#a9c3d6"></p>
+          </div>
+        </div>
+
+        <div class="pdx-panel">
+          <p class="pdx-label mb-2.5">Pokédex Entry</p>
+          <p id="pdxDesc" class="text-sm leading-relaxed" style="color:#dbeeff"></p>
+        </div>
+
+        <div class="pdx-panel">
+          <p class="pdx-label mb-3.5">Status</p>
+          <div id="pdxStats" class="space-y-2.5"></div>
+        </div>
+
+        <div>
+          <p class="pdx-label mb-3">Style</p>
+          <div id="pdxStyle" class="flex gap-3 overflow-x-auto pb-2 scrollbar-slim"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const TYPE_COLORS = {
+    normal:'#B0AA94', fire:'#f5a15a', water:'#6fa8dc', electric:'#f5d76e', grass:'#8bc48a',
+    ice:'#a7e2e0', fighting:'#d0685e', poison:'#b47bc4', ground:'#e3c481', flying:'#b7a6e6',
+    psychic:'#ee87a8', bug:'#a8c94a', rock:'#c9b370', ghost:'#8a76b0', dragon:'#8f7ff0',
+    dark:'#8d7566', steel:'#b9c2cc', fairy:'#f0a8cf'
+  };
+
+  const MAX_DEX = 1025;
+  const ALL_TYPES = ['normal','fire','water','electric','grass','ice','fighting','poison','ground','flying','psychic','bug','rock','ghost','dragon','dark','steel','fairy'];
+
+  // Every Mega Evolution / Primal Reversion actually released in a mainline
+  // game (Gen 6 X/Y and ORAS), current through Legends Z-A. PokeAPI's
+  // species varieties list also contains a few scrapped/unused datamined
+  // "-mega" slugs (Heatran among them) that never shipped in any game —
+  // this allowlist keeps those out of the Style section.
+  const CONFIRMED_MEGAS = new Set([
+    'venusaur-mega','charizard-mega-x','charizard-mega-y','blastoise-mega','alakazam-mega','gengar-mega',
+    'kangaskhan-mega','pinsir-mega','gyarados-mega','aerodactyl-mega','mewtwo-mega-x','mewtwo-mega-y',
+    'ampharos-mega','steelix-mega','scizor-mega','heracross-mega','houndoom-mega','tyranitar-mega',
+    'sceptile-mega','blaziken-mega','swampert-mega','gardevoir-mega','sableye-mega','mawile-mega',
+    'aggron-mega','medicham-mega','manectric-mega','sharpedo-mega','camerupt-mega','altaria-mega',
+    'banette-mega','absol-mega','glalie-mega','salamence-mega','metagross-mega','latias-mega','latios-mega',
+    'rayquaza-mega','lopunny-mega','garchomp-mega','lucario-mega','abomasnow-mega','gallade-mega','audino-mega',
+    'diancie-mega','groudon-primal','kyogre-primal'
+  ]);
+  let legendaryMode = false;
+  let pickCount = 1;
+  let isRolling = false;
+  let lastPicks = [];
+  let currentDetailIndex = 0;
+  const abilityEffectCache = {};
+
+  const legendaryToggle = document.getElementById('legendaryToggle');
+  const toggleKnob = document.getElementById('toggleKnob');
+  const pickCountGroup = document.getElementById('pickCountGroup');
+  const randomizeBtn = document.getElementById('randomizeBtn');
+  const btnLabel = document.getElementById('btnLabel');
+  const resultsWrap = document.getElementById('resultsWrap');
+  const emptyState = document.getElementById('emptyState');
+
+  function setPickCount(n){
+    pickCount = n;
+    document.querySelectorAll('.pick-count-btn').forEach(btn=>{
+      const active = Number(btn.dataset.count) === n;
+      btn.style.background = active ? 'linear-gradient(140deg, var(--gold), var(--gold-dim))' : 'var(--navy-600)';
+      btn.style.color = active ? '#0b0e1c' : 'var(--text-lo)';
+      btn.style.borderColor = active ? 'var(--gold)' : 'var(--card-edge)';
+    });
+  }
+  pickCountGroup.addEventListener('click', e=>{
+    const btn = e.target.closest('.pick-count-btn');
+    if(!btn) return;
+    setPickCount(Number(btn.dataset.count));
+  });
+  setPickCount(1);
+
+  legendaryToggle.addEventListener('click', ()=>{
+    legendaryMode = !legendaryMode;
+    legendaryToggle.setAttribute('aria-pressed', String(legendaryMode));
+    toggleKnob.style.transform = legendaryMode ? 'translateX(24px)' : 'translateX(0)';
+    legendaryToggle.style.background = legendaryMode ? 'linear-gradient(140deg, var(--gold), var(--gold-dim))' : 'var(--navy-600)';
+    legendaryToggle.style.borderColor = legendaryMode ? 'var(--gold)' : 'var(--card-edge)';
+  });
+
+  function spriteUrl(id){
+    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
+  }
+
+  const MOVE_NAME_EXCEPTIONS = {
+    'u-turn':'U-turn', 'will-o-wisp':'Will-O-Wisp', 'x-scissor':'X-Scissor', 'double-edge':'Double-Edge',
+    'freeze-dry':'Freeze-Dry', 'soft-boiled':'Soft-Boiled', 'trick-or-treat':'Trick-or-Treat',
+    'multi-attack':'Multi-Attack', 'lock-on':'Lock-On', 'self-destruct':'Self-Destruct',
+    'baby-doll-eyes':'Baby-Doll Eyes', 'power-up-punch':'Power-Up Punch', 'wake-up-slap':'Wake-Up Slap'
+  };
+
+  function formatSlug(slug){
+    if(MOVE_NAME_EXCEPTIONS[slug]) return MOVE_NAME_EXCEPTIONS[slug];
+    return slug.split('-').map(w=> w.charAt(0).toUpperCase()+w.slice(1)).join(' ');
+  }
+
+  function deriveWildSet(data){
+    const stats = {};
+    data.stats.forEach(s=>{ stats[s.stat.name] = s.base_stat; });
+    const atk = stats['attack']||0, spa = stats['special-attack']||0, spe = stats['speed']||0;
+    const hp = stats['hp']||0, def = stats['defense']||0, spd = stats['special-defense']||0;
+    const physical = atk >= spa;
+    const offensive = Math.max(atk, spa);
+    const bulk = hp + def + spd;
+
+    let item, nature;
+    if(offensive < 75 && bulk >= 300){
+      item = 'Leftovers';
+      nature = physical ? 'Careful' : 'Bold';
+    } else if(spe >= 100){
+      item = 'Choice Scarf';
+      nature = physical ? 'Jolly' : 'Timid';
+    } else if(offensive >= 100){
+      item = 'Life Orb';
+      nature = physical ? 'Adamant' : 'Modest';
+    } else {
+      item = physical ? 'Choice Band' : 'Choice Specs';
+      nature = physical ? 'Adamant' : 'Modest';
+    }
+
+    const nonHidden = data.abilities.find(a=>!a.is_hidden) || data.abilities[0];
+    const ability = nonHidden ? formatSlug(nonHidden.ability.name) : 'Unknown';
+
+    const levelUp = [];
+    const machine = [];
+    data.moves.forEach(m=>{
+      const slug = m.move.name;
+      const details = m.version_group_details || [];
+      const lvlDetail = details.find(d=> d.move_learn_method && d.move_learn_method.name === 'level-up');
+      if(lvlDetail){ levelUp.push({ slug, level: lvlDetail.level_learned_at || 0 }); return; }
+      const tmDetail = details.find(d=> d.move_learn_method && d.move_learn_method.name === 'machine');
+      if(tmDetail){ machine.push(slug); }
+    });
+    levelUp.sort((a,b)=> b.level - a.level);
+
+    const chosen = levelUp.slice(0,3).map(x=>x.slug);
+    const tmPick = machine.find(slug=> !chosen.includes(slug));
+    if(tmPick) chosen.push(tmPick);
+    for(const x of levelUp){
+      if(chosen.length >= 4) break;
+      if(!chosen.includes(x.slug)) chosen.push(x.slug);
+    }
+
+    return { ability, item, nature, moveSlugs: chosen.slice(0,4) };
+  }
+
+  async function withMoveTypes(slugs){
+    return Promise.all(slugs.map(async slug=>{
+      try{
+        const res = await fetch(`https://pokeapi.co/api/v2/move/${slug}`);
+        const d = await res.json();
+        return { name: formatSlug(slug), type: formatSlug(d.type.name) };
+      }catch(err){
+        return { name: formatSlug(slug), type: null };
+      }
+    }));
+  }
+
+  function pickRandomLegendaries(n){
+    const pool = [...LEGENDARY_DEX];
+    const picks = [];
+    for(let i=0;i<n && pool.length;i++){
+      const idx = Math.floor(Math.random()*pool.length);
+      picks.push(pool.splice(idx,1)[0]);
+    }
+    return picks;
+  }
+
+  function romanGen(n){
+    return ['I','II','III','IV','V','VI','VII','VIII','IX'][n-1];
+  }
+
+  async function fetchWildPokemon(){
+    const id = Math.floor(Math.random()*MAX_DEX) + 1;
+    try{
+      const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+      const data = await res.json();
+      const speciesRes = await fetch(data.species.url);
+      const species = await speciesRes.json();
+      const genMap = { 'generation-i':1,'generation-ii':2,'generation-iii':3,'generation-iv':4,'generation-v':5,'generation-vi':6,'generation-vii':7,'generation-viii':8,'generation-ix':9 };
+      const set = deriveWildSet(data);
+      const moves = await withMoveTypes(set.moveSlugs);
+      return {
+        id,
+        name: data.name.split('-').map(w=>w[0].toUpperCase()+w.slice(1)).join(' '),
+        types: data.types.map(t=> t.type.name[0].toUpperCase()+t.type.name.slice(1)),
+        gen: genMap[species.generation.name] || null,
+        sprite: data.sprites?.other?.['official-artwork']?.front_default || spriteUrl(id),
+        category: null,
+        signature: null,
+        ability: set.ability,
+        item: set.item,
+        nature: set.nature,
+        moves,
+        color: species.color?.name || null,
+        shape: species.shape?.name || null,
+        heightM: data.height/10
+      };
+    }catch(err){
+      return { id, name:'Unknown', types:['Normal'], gen:null, sprite: spriteUrl(id), category:null, signature:null, ability:'Unknown', item:'Leftovers', nature:'Serious', moves:[], color:null, shape:null, heightM:null };
+    }
+  }
+
+  function typeBadges(types){
+    return types.map(t=>{
+      const key = t.toLowerCase();
+      const color = TYPE_COLORS[key] || '#9aa0c3';
+      return `<span class="type-badge" style="background:${color}">${t}</span>`;
+    }).join(' ');
+  }
+
+  function moveChip(m){
+    const typeTag = m.type
+      ? `<span class="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full shrink-0" style="background:${TYPE_COLORS[m.type.toLowerCase()] || '#9aa0c3'}; color:#0b0e1c">${m.type}</span>`
+      : '';
+    return `<span class="flex items-center justify-between gap-1.5 text-xs px-2.5 py-1.5 rounded-lg" style="background:var(--navy-600); color:var(--text-hi)"><span>${m.name}</span>${typeTag}</span>`;
+  }
+
+  function normalizeMoves(moves){
+    return (moves || []).map(m=> typeof m === 'string' ? { name:m, type: MOVE_TYPES[m] || null } : m);
+  }
+
+  // Physical-appearance clues only — colour, body shape, and size — sourced
+  // from PokeAPI's own species/pokemon data, never typing/ability/nature.
+  const SHAPE_LABELS = {
+    ball:'a round, ball-like body', squiggle:'a long, serpentine body', fish:'a fish-like body',
+    arms:'a slender body with prominent arms', blob:'a soft, blob-like body', upright:'an upright, bipedal stance',
+    legs:'a body standing tall on long legs', quadruped:'a four-legged, quadruped body', wings:'a winged body',
+    tentacles:'a body with trailing tentacles', heads:'multiple heads', humanoid:'a humanoid build',
+    'bug-wings':'an insect-like body with wings', armor:'an armoured, shelled body'
+  };
+
+  function sizeLabel(heightM){
+    if(heightM < 0.3) return 'smaller than a house cat';
+    if(heightM < 0.6) return 'about knee-height on an adult';
+    if(heightM < 1.2) return 'roughly waist to chest height on an adult';
+    if(heightM < 2.0) return 'around the height of an adult human';
+    if(heightM < 4.0) return 'taller than most adult humans';
+    if(heightM < 8.0) return 'as tall as a small house';
+    return 'towering, taller than a bus';
+  }
+
+  function buildAppearanceClues({ color, shape, heightM }){
+    const clues = [];
+    if(color) clues.push(`Its primary colour is ${color}.`);
+    if(shape && SHAPE_LABELS[shape]) clues.push(`It has ${SHAPE_LABELS[shape]}.`);
+    if(typeof heightM === 'number' && !isNaN(heightM)) clues.push(`It is ${sizeLabel(heightM)}.`);
+    return clues.slice(0,3);
+  }
+
+  function clueBoxHTML(clues, idAttr){
+    if(!clues.length) return `<div ${idAttr ? `id="${idAttr}"` : ''} class="rounded-xl mt-3 px-3.5 py-3" style="border:1px solid var(--card-edge); background:var(--navy-800)"><p class="text-xs" style="color:var(--text-lo)">No appearance clues available.</p></div>`;
+    return `
+    <div ${idAttr ? `id="${idAttr}"` : ''} class="rounded-xl mt-3 px-3.5 py-3" style="border:1px solid var(--card-edge); background:var(--navy-800)">
+      <p class="text-[10px] uppercase tracking-wider font-extrabold mb-2" style="color:var(--gold)">Clue Phrases</p>
+      <ol class="space-y-1.5">
+        ${clues.map((c,i)=>`<li class="flex gap-2 text-xs" style="color:var(--text-hi)"><span class="font-extrabold shrink-0" style="color:var(--gold)">${i+1}.</span><span>${c}</span></li>`).join('')}
+      </ol>
+    </div>`;
+  }
+
+  let pullToken = 0;
+
+  async function loadLegendaryClues(id, idx, token){
+    try{
+      const [p, s] = await Promise.all([
+        fetch(`https://pokeapi.co/api/v2/pokemon/${id}`).then(r=>r.json()),
+        fetch(`https://pokeapi.co/api/v2/pokemon-species/${id}`).then(r=>r.json())
+      ]);
+      if(token !== pullToken) return;
+      const clues = buildAppearanceClues({ color: s.color?.name, shape: s.shape?.name, heightM: p.height/10 });
+      const el = document.getElementById(`clues-${idx}`);
+      if(el) el.outerHTML = clueBoxHTML(clues, `clues-${idx}`);
+    }catch(err){
+      if(token !== pullToken) return;
+      const el = document.getElementById(`clues-${idx}`);
+      if(el) el.outerHTML = clueBoxHTML([], `clues-${idx}`);
+    }
+  }
+
+  function cluesHTML(mon, idx){
+    if(mon.color || mon.shape || typeof mon.heightM === 'number'){
+      return clueBoxHTML(buildAppearanceClues(mon));
+    }
+    loadLegendaryClues(mon.id, idx, pullToken);
+    return `<div id="clues-${idx}" class="rounded-xl mt-3 px-3.5 py-3" style="border:1px solid var(--card-edge); background:var(--navy-800)">
+      <p class="text-[10px] uppercase tracking-wider font-extrabold mb-2" style="color:var(--gold)">Clue Phrases</p>
+      <p class="text-xs" style="color:var(--text-lo)">Loading clues...</p>
+    </div>`;
+  }
+
+  function pokemonCardHTML(mon, delay, idx){
+    const categoryBadge = mon.category ? `<span class="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full" style="background:${mon.category === 'Mythical' ? 'linear-gradient(140deg, var(--holo-b), var(--holo-a))' : 'linear-gradient(140deg, var(--gold), var(--gold-dim))'}; color:#0b0e1c">${mon.category}</span>` : '';
+    const genLabel = mon.gen ? 'Gen ' + romanGen(mon.gen) : 'Unknown gen';
+    const sprite = mon.sprite || spriteUrl(mon.id);
+    const normalizedMoves = normalizeMoves(mon.moves);
+    const movesHTML = normalizedMoves.length
+      ? `<div class="space-y-1.5">${normalizedMoves.map(moveChip).join('')}</div>`
+      : `<p class="text-xs" style="color:var(--text-lo)">No moveset data available.</p>`;
+
+    return `
+    <div class="card-surface rounded-3xl p-5 relative overflow-hidden reveal-in" style="animation-delay:${delay}ms">
+      <div class="holo-sheen"></div>
+      <div class="relative">
+        <div class="flex items-start justify-between mb-3">
+          <div class="flex items-center gap-2">
+            ${categoryBadge}
+            <span class="text-[10px] font-bold uppercase tracking-wider" style="color:var(--text-lo)">${genLabel}</span>
+          </div>
+          <span class="text-[11px] font-mono" style="color:var(--text-lo)">#${String(mon.id).padStart(4,'0')}</span>
+        </div>
+
+        <div class="flex items-center gap-4 mb-4">
+          <img src="${sprite}" alt="${mon.name}" loading="lazy" class="w-24 h-24 sprite-glow shrink-0" onerror="this.style.opacity=0.15" />
+          <div class="min-w-0">
+            <h3 class="font-display text-lg leading-tight break-words" style="color:var(--text-hi)">${mon.name}</h3>
+            <div class="flex flex-wrap gap-1.5 mt-2">${typeBadges(mon.types)}</div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 mb-4 text-xs" style="color:var(--text-lo)">
+          <span>Ability: <span class="font-bold" style="color:var(--text-hi)">${mon.ability}</span></span>
+        </div>
+
+        ${mon.signature ? `
+        <div class="signature-glow rounded-xl px-3.5 py-2.5 mb-4">
+          <p class="text-[10px] uppercase tracking-wider font-extrabold mb-0.5" style="color:var(--gold)">Signature Move</p>
+          <p class="text-sm font-bold" style="color:var(--text-hi)">${mon.signature}</p>
+        </div>` : ''}
+
+        <details class="rounded-xl" style="border:1px solid var(--card-edge); background:var(--navy-800)">
+          <summary class="flex items-center justify-between px-3.5 py-3">
+            <span class="text-xs font-extrabold uppercase tracking-wider" style="color:var(--text-hi)">Competitive Set</span>
+            <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="var(--text-lo)" stroke-width="2" stroke-linecap="round"/></svg>
+          </summary>
+          <div class="px-3.5 pb-4 pt-1 space-y-3">
+            <div class="flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
+              <span style="color:var(--text-lo)">Item: <span class="font-bold" style="color:var(--text-hi)">${mon.item}</span></span>
+              <span style="color:var(--text-lo)">Nature: <span class="font-bold" style="color:var(--text-hi)">${mon.nature}</span></span>
+            </div>
+            <div>
+              <p class="text-[10px] uppercase tracking-wider font-extrabold mb-1.5" style="color:var(--text-lo)">Suggested Moveset</p>
+              ${movesHTML}
+            </div>
+          </div>
+        </details>
+
+        ${cluesHTML(mon, idx)}
+
+        <button type="button" class="pdx-open-btn w-full mt-3 rounded-xl py-2.5 text-xs font-extrabold uppercase tracking-wider" data-idx="${idx}" style="border:1px solid var(--card-edge); color:var(--text-lo); background:transparent">
+          View Pokédex
+        </button>
+      </div>
+    </div>`;
+  }
+
+  function loadingSkeleton(n){
+    return Array.from({length:n}).map((_,i)=>`
+      <div class="card-surface rounded-3xl p-8 flex items-center justify-center gap-2 reveal-in" style="animation-delay:${i*90}ms">
+        <span class="loader-dot w-2.5 h-2.5 rounded-full" style="background:var(--gold)"></span>
+        <span class="loader-dot w-2.5 h-2.5 rounded-full" style="background:var(--holo-b)"></span>
+        <span class="loader-dot w-2.5 h-2.5 rounded-full" style="background:var(--coral)"></span>
+      </div>`).join('');
+  }
+
+  async function handleRandomize(){
+    if(isRolling) return;
+    isRolling = true;
+    pullToken++;
+    emptyState.classList.add('hidden');
+    randomizeBtn.disabled = true;
+    btnLabel.textContent = 'Opening...';
+    document.getElementById('btnBallIcon').classList.add('pokeball-spin');
+
+    resultsWrap.innerHTML = loadingSkeleton(pickCount);
+
+    let picks;
+    if(legendaryMode){
+      picks = pickRandomLegendaries(pickCount);
+      await new Promise(r=>setTimeout(r, 500));
+    } else {
+      picks = await Promise.all(Array.from({length:pickCount}).map(()=>fetchWildPokemon()));
+    }
+
+    lastPicks = picks;
+    resultsWrap.innerHTML = picks.map((mon,i)=> pokemonCardHTML(mon, i*110, i)).join('');
+
+    randomizeBtn.disabled = false;
+    btnLabel.textContent = 'Randomise';
+    document.getElementById('btnBallIcon').classList.remove('pokeball-spin');
+    isRolling = false;
+  }
+
+  randomizeBtn.addEventListener('click', handleRandomize);
+
+  // ---------------- Pokédex showcase modal ----------------
+
+  const STAT_LABELS = { hp:'HP', attack:'ATK', defense:'DEF', 'special-attack':'SPA', 'special-defense':'SPD', speed:'SPE' };
+  const REGION_LABELS = { alola:'Alolan', galar:'Galarian', hisui:'Hisuian', paldea:'Paldean' };
+
+  const pdxModal = document.getElementById('pokedexModal');
+  const pdxLoading = document.getElementById('pdxLoading');
+  const pdxContent = document.getElementById('pdxContent');
+  const pdxName = document.getElementById('pdxName');
+  const pdxDexNo = document.getElementById('pdxDexNo');
+  const pdxSprite = document.getElementById('pdxSprite');
+  const pdxTypes = document.getElementById('pdxTypes');
+  const pdxWeak = document.getElementById('pdxWeak');
+  const pdxHeight = document.getElementById('pdxHeight');
+  const pdxWeight = document.getElementById('pdxWeight');
+  const pdxCategory = document.getElementById('pdxCategory');
+  const pdxGender = document.getElementById('pdxGender');
+  const pdxAbility = document.getElementById('pdxAbility');
+  const pdxAbilityInfo = document.getElementById('pdxAbilityInfo');
+  const pdxAbilityEffect = document.getElementById('pdxAbilityEffect');
+  const pdxDesc = document.getElementById('pdxDesc');
+  const pdxStats = document.getElementById('pdxStats');
+  const pdxStyle = document.getElementById('pdxStyle');
+
+  function formatVarietyName(speciesSlug, varietySlug){
+    const baseDisplay = formatSlug(speciesSlug);
+    if(varietySlug === speciesSlug) return baseDisplay;
+    const suffix = varietySlug.slice(speciesSlug.length + 1);
+    const parts = suffix.split('-');
+    if(parts[0] === 'mega'){
+      const letter = parts[1] ? ' ' + parts[1].toUpperCase() : '';
+      return `Mega ${baseDisplay}${letter}`;
+    }
+    if(parts[0] === 'gmax'){ return `${baseDisplay} Gigantamax`; }
+    if(REGION_LABELS[parts[0]]){ return `${REGION_LABELS[parts[0]]} ${baseDisplay}`; }
+    return `${baseDisplay} (${parts.map(w=> w.charAt(0).toUpperCase()+w.slice(1)).join(' ')})`;
+  }
+
+  async function fetchPokedexDetail(id){
+    const [p, s] = await Promise.all([
+      fetch(`https://pokeapi.co/api/v2/pokemon/${id}`).then(r=>r.json()),
+      fetch(`https://pokeapi.co/api/v2/pokemon-species/${id}`).then(r=>r.json())
+    ]);
+
+    const types = p.types.map(t=> t.type.name);
+    const typeDetails = await Promise.all(types.map(t=> fetch(`https://pokeapi.co/api/v2/type/${t}`).then(r=>r.json())));
+    const multipliers = {};
+    ALL_TYPES.forEach(t=> multipliers[t] = 1);
+    typeDetails.forEach(td=>{
+      td.damage_relations.double_damage_from.forEach(t=> multipliers[t.name] *= 2);
+      td.damage_relations.half_damage_from.forEach(t=> multipliers[t.name] *= 0.5);
+      td.damage_relations.no_damage_from.forEach(t=> multipliers[t.name] *= 0);
+    });
+    const weaknesses = Object.entries(multipliers)
+      .filter(([,m])=> m > 1)
+      .sort((a,b)=> b[1]-a[1])
+      .map(([t])=> t.charAt(0).toUpperCase()+t.slice(1));
+
+    const genus = (s.genera.find(g=> g.language.name === 'en') || {}).genus || 'Pokémon';
+    const flavorRaw = (s.flavor_text_entries.find(f=> f.language.name === 'en') || {}).flavor_text || '';
+    const flavorClean = flavorRaw.replace(/[\f\n\r]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const description = flavorClean.split(/(?<=[.!?])\s+/).slice(0,2).join(' ');
+
+    const varieties = s.varieties.filter(v=>{
+      const slug = v.pokemon.name;
+      // PokeAPI's variety list includes a handful of scrapped/unused datamined
+      // forms (e.g. "heatran-mega" was cut before release and never shipped).
+      // Only let through Mega/Primal slugs that are confirmed, released forms.
+      if(/-mega(-|$)|-primal$/.test(slug)) return CONFIRMED_MEGAS.has(slug);
+      return true;
+    }).slice(0, 6);
+    const styles = (await Promise.all(varieties.map(async v=>{
+      try{
+        const vd = await fetch(v.pokemon.url).then(r=>r.json());
+        return {
+          name: formatVarietyName(s.name, v.pokemon.name),
+          types: vd.types.map(t=> t.type.name.charAt(0).toUpperCase()+t.type.name.slice(1)),
+          sprite: vd.sprites?.other?.['official-artwork']?.front_default || vd.sprites?.front_default || spriteUrl(id)
+        };
+      }catch(err){ return null; }
+    }))).filter(Boolean);
+
+    const nonHidden = p.abilities.find(a=> !a.is_hidden) || p.abilities[0];
+
+    return {
+      id,
+      name: formatSlug(p.name),
+      types: types.map(t=> t.charAt(0).toUpperCase()+t.slice(1)),
+      sprite: p.sprites?.other?.['official-artwork']?.front_default || spriteUrl(id),
+      height: (p.height/10).toFixed(1),
+      weight: (p.weight/10).toFixed(1),
+      category: genus,
+      genderRate: s.gender_rate,
+      abilitySlug: nonHidden ? nonHidden.ability.name : null,
+      abilityName: nonHidden ? formatSlug(nonHidden.ability.name) : 'Unknown',
+      description: description || 'No Pokédex entry available.',
+      stats: p.stats,
+      weaknesses,
+      styles
+    };
+  }
+
+  function genderHTML(rate){
+    if(rate === -1) return `<span style="color:var(--text-lo)">Genderless</span>`;
+    const parts = [];
+    if(rate < 8) parts.push(`<span style="color:#6fa8dc">♂</span>`);
+    if(rate > 0) parts.push(`<span style="color:#ee87a8">♀</span>`);
+    return parts.join(' <span style="color:var(--text-lo)">/</span> ');
+  }
+
+  function renderPokedexDetail(detail){
+    pdxDexNo.textContent = `#${String(detail.id).padStart(4,'0')}`;
+    pdxName.textContent = detail.name;
+    pdxSprite.src = detail.sprite;
+    pdxSprite.alt = detail.name;
+
+    pdxTypes.innerHTML = detail.types.map(t=>{
+      const color = TYPE_COLORS[t.toLowerCase()] || '#9aa0c3';
+      return `<span class="pdx-type-pill" style="background:${color}"><span class="pdx-dot"></span>${t}</span>`;
+    }).join('');
+
+    pdxWeak.innerHTML = detail.weaknesses.length
+      ? detail.weaknesses.slice(0,5).map(t=>{
+          const color = TYPE_COLORS[t.toLowerCase()] || '#9aa0c3';
+          return `<span class="pdx-weak-pill" style="background:${color}">${t}</span>`;
+        }).join('')
+      : `<span class="text-xs" style="color:var(--text-lo)">No common weaknesses</span>`;
+
+    pdxHeight.textContent = `${detail.height} m`;
+    pdxWeight.textContent = `${detail.weight} kg`;
+    pdxCategory.textContent = detail.category;
+    pdxGender.innerHTML = genderHTML(detail.genderRate);
+    pdxAbility.textContent = detail.abilityName;
+    pdxAbilityEffect.classList.add('hidden');
+    pdxAbilityEffect.textContent = '';
+    pdxAbilityInfo.dataset.slug = detail.abilitySlug || '';
+
+    pdxDesc.textContent = detail.description;
+
+    pdxStats.innerHTML = detail.stats.map(s=>{
+      const label = STAT_LABELS[s.stat.name] || s.stat.name;
+      const pct = Math.max(4, Math.min(100, (s.base_stat/180)*100));
+      return `
+        <div class="pdx-stat-row">
+          <span class="pdx-stat-label">${label}</span>
+          <div class="pdx-stat-track"><div class="pdx-stat-fill" style="width:${pct}%"></div></div>
+          <span class="pdx-stat-num">${s.base_stat}</span>
+        </div>`;
+    }).join('');
+
+    pdxStyle.innerHTML = detail.styles.length
+      ? detail.styles.map(v=>`
+        <div class="pdx-style-card">
+          <div class="pdx-style-ring"><img src="${v.sprite}" alt="${v.name}" class="w-14 h-14" onerror="this.style.opacity=0.15" /></div>
+          <p class="text-[10px] font-mono mb-1" style="color:var(--pdx-cyan-dim)">#${String(detail.id).padStart(4,'0')}</p>
+          <p class="text-xs font-extrabold mb-1.5" style="color:#eaf6ff">${v.name}</p>
+          <div class="flex flex-wrap justify-center gap-1">${v.types.map(t=>`<span class="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full" style="background:${TYPE_COLORS[t.toLowerCase()]||'#9aa0c3'}; color:#08131c">${t}</span>`).join('')}</div>
+        </div>`).join('')
+      : `<p class="text-xs" style="color:var(--text-lo)">No alternate forms known.</p>`;
+
+    pdxLoading.classList.add('hidden');
+    pdxContent.classList.remove('hidden');
+  }
+
+  async function openPokedexModal(idx){
+    currentDetailIndex = idx;
+    const mon = lastPicks[idx];
+    if(!mon) return;
+
+    pdxModal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    pdxContent.classList.add('hidden');
+    pdxLoading.classList.remove('hidden');
+    pdxName.textContent = mon.name;
+    pdxDexNo.textContent = `#${String(mon.id).padStart(4,'0')}`;
+    pdxSprite.src = mon.sprite || spriteUrl(mon.id);
+
+    try{
+      const detail = await fetchPokedexDetail(mon.id);
+      if(currentDetailIndex === idx) renderPokedexDetail(detail);
+    }catch(err){
+      pdxLoading.innerHTML = `<p class="text-xs" style="color:var(--text-lo)">Couldn't load Pokédex data. Check your connection and try again.</p>`;
+    }
+  }
+
+  function closePokedexModal(){
+    pdxModal.classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+
+  resultsWrap.addEventListener('click', e=>{
+    const btn = e.target.closest('.pdx-open-btn');
+    if(!btn) return;
+    openPokedexModal(Number(btn.dataset.idx));
+  });
+
+  document.getElementById('pdxClose').addEventListener('click', closePokedexModal);
+  document.getElementById('pdxPrev').addEventListener('click', ()=>{
+    if(!lastPicks.length) return;
+    openPokedexModal((currentDetailIndex - 1 + lastPicks.length) % lastPicks.length);
+  });
+  document.getElementById('pdxNext').addEventListener('click', ()=>{
+    if(!lastPicks.length) return;
+    openPokedexModal((currentDetailIndex + 1) % lastPicks.length);
+  });
+
+  pdxAbilityInfo.addEventListener('click', async ()=>{
+    const slug = pdxAbilityInfo.dataset.slug;
+    if(!slug) return;
+    if(!pdxAbilityEffect.classList.contains('hidden')){
+      pdxAbilityEffect.classList.add('hidden');
+      return;
+    }
+    if(abilityEffectCache[slug]){
+      pdxAbilityEffect.textContent = abilityEffectCache[slug];
+      pdxAbilityEffect.classList.remove('hidden');
+      return;
+    }
+    pdxAbilityEffect.textContent = 'Loading...';
+    pdxAbilityEffect.classList.remove('hidden');
+    try{
+      const data = await fetch(`https://pokeapi.co/api/v2/ability/${slug}`).then(r=>r.json());
+      const entry = data.effect_entries.find(e=> e.language.name === 'en');
+      const text = entry ? entry.short_effect : 'No description available.';
+      abilityEffectCache[slug] = text;
+      pdxAbilityEffect.textContent = text;
+    }catch(err){
+      pdxAbilityEffect.textContent = 'No description available.';
+    }
+  });
+</script>
+</body>
+</html>
