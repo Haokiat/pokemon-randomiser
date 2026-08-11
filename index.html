@@ -269,6 +269,20 @@
     margin-left:6px; transition:background 200ms ease;
   }
   .pdx-ability-info:hover{ background:rgba(122,214,255,0.16); }
+
+  .read-aloud-btn{
+    display:inline-flex; align-items:center; gap:5px; flex-shrink:0;
+    padding:5px 10px; border-radius:999px; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.06em;
+    border:1px solid var(--gold); color:var(--gold); background:transparent; white-space:nowrap;
+    transition:background 200ms ease, color 200ms ease, transform 200ms cubic-bezier(.34,1.56,.64,1);
+  }
+  .read-aloud-btn:hover{ transform:translateY(-1px); }
+  .read-aloud-btn:active{ transform:translateY(0) scale(0.96); }
+  .read-aloud-btn:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+  .read-aloud-btn.is-speaking{ background:var(--gold); color:#0b0e1c; }
+  .read-aloud-btn.is-speaking .speaker-icon{ animation:pdxPulse 700ms ease-in-out infinite; }
+  #pokedexModal .read-aloud-btn{ border-color:var(--pdx-cyan); color:var(--pdx-cyan); }
+  #pokedexModal .read-aloud-btn.is-speaking{ background:var(--pdx-cyan); color:#08131c; }
 </style>
 </head>
 <body>
@@ -317,6 +331,14 @@
           <button data-count="2" class="chip pick-count-btn rounded-xl py-2.5 text-sm font-bold" style="background:var(--navy-600); border:1px solid var(--card-edge); color:var(--text-lo)">2</button>
           <button data-count="3" class="chip pick-count-btn rounded-xl py-2.5 text-sm font-bold" style="background:var(--navy-600); border:1px solid var(--card-edge); color:var(--text-lo)">3</button>
         </div>
+      </div>
+
+      <!-- Narrator voice -->
+      <div id="voiceSection" class="mb-5">
+        <p class="text-[13px] font-extrabold mb-2.5" style="color:var(--text-hi)">Narrator voice</p>
+        <select id="voiceSelect" class="custom-select w-full rounded-xl py-2.5 px-3.5 text-sm font-bold" style="background:var(--navy-600); border:1px solid var(--card-edge); color:var(--text-hi)">
+          <option value="">Loading voices...</option>
+        </select>
       </div>
 
       <!-- Randomize button -->
@@ -417,7 +439,13 @@
         </div>
 
         <div class="pdx-panel">
-          <p class="pdx-label mb-2.5">Pokédex Entry</p>
+          <div class="flex items-center justify-between mb-2.5 gap-2">
+            <p class="pdx-label">Pokédex Entry</p>
+            <button id="pdxReadDescBtn" type="button" class="read-aloud-btn">
+              <svg class="speaker-icon shrink-0" width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M5 9v6h4l5 5V4L9 9H5Z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              <span class="read-aloud-label">Read Aloud</span>
+            </button>
+          </div>
           <p id="pdxDesc" class="text-sm leading-relaxed" style="color:#dbeeff"></p>
         </div>
 
@@ -476,6 +504,68 @@
   const btnLabel = document.getElementById('btnLabel');
   const resultsWrap = document.getElementById('resultsWrap');
   const emptyState = document.getElementById('emptyState');
+  const voiceSection = document.getElementById('voiceSection');
+  const voiceSelect = document.getElementById('voiceSelect');
+
+  // ---------------- Text-to-speech ----------------
+
+  const ttsSupported = 'speechSynthesis' in window;
+  let selectedVoice = null;
+
+  function populateVoices(){
+    const voices = window.speechSynthesis.getVoices();
+    if(!voices.length) return;
+    const prevValue = voiceSelect.value;
+    voiceSelect.innerHTML = voices.map((v,i)=> `<option value="${i}">${v.name}${v.lang ? ` (${v.lang})` : ''}</option>`).join('');
+    const restoreIdx = prevValue !== '' && Number(prevValue) < voices.length ? Number(prevValue) : 0;
+    voiceSelect.value = String(restoreIdx);
+    selectedVoice = voices[restoreIdx] || null;
+  }
+
+  if(ttsSupported){
+    populateVoices();
+    window.speechSynthesis.onvoiceschanged = populateVoices;
+    voiceSelect.addEventListener('change', ()=>{
+      const voices = window.speechSynthesis.getVoices();
+      selectedVoice = voices[Number(voiceSelect.value)] || null;
+    });
+  } else {
+    voiceSection.classList.add('hidden');
+  }
+
+  function setSpeakingState(btn, speaking){
+    btn.classList.toggle('is-speaking', speaking);
+    const label = btn.querySelector('.read-aloud-label');
+    if(label) label.textContent = speaking ? 'Stop' : 'Read Aloud';
+  }
+
+  function stopSpeaking(){
+    if(!ttsSupported) return;
+    window.speechSynthesis.cancel();
+    document.querySelectorAll('.read-aloud-btn.is-speaking').forEach(b=> setSpeakingState(b, false));
+  }
+
+  function handleReadAloudClick(btn){
+    if(!ttsSupported) return;
+    const text = btn.dataset.speak;
+    if(!text) return;
+    const synth = window.speechSynthesis;
+    const wasSpeaking = btn.classList.contains('is-speaking');
+    document.querySelectorAll('.read-aloud-btn.is-speaking').forEach(b=> setSpeakingState(b, false));
+    synth.cancel();
+    if(wasSpeaking) return;
+    const utter = new SpeechSynthesisUtterance(text);
+    if(selectedVoice) utter.voice = selectedVoice;
+    utter.onend = ()=> setSpeakingState(btn, false);
+    utter.onerror = ()=> setSpeakingState(btn, false);
+    setSpeakingState(btn, true);
+    synth.speak(utter);
+  }
+
+  document.addEventListener('click', e=>{
+    const btn = e.target.closest('.read-aloud-btn');
+    if(btn) handleReadAloudClick(btn);
+  });
 
   function setPickCount(n){
     pickCount = n;
@@ -645,37 +735,51 @@
 
   // Physical-appearance clues only — colour, body shape, and size — sourced
   // from PokeAPI's own species/pokemon data, never typing/ability/nature.
+  // Kept to short, simple words a young child could read or hear and understand.
   const SHAPE_LABELS = {
-    ball:'a round, ball-like body', squiggle:'a long, serpentine body', fish:'a fish-like body',
-    arms:'a slender body with prominent arms', blob:'a soft, blob-like body', upright:'an upright, bipedal stance',
-    legs:'a body standing tall on long legs', quadruped:'a four-legged, quadruped body', wings:'a winged body',
-    tentacles:'a body with trailing tentacles', heads:'multiple heads', humanoid:'a humanoid build',
-    'bug-wings':'an insect-like body with wings', armor:'an armoured, shelled body'
+    ball:'is round, like a ball', squiggle:'is long and wiggly, like a snake', fish:'looks like a fish',
+    arms:'has big arms', blob:'is soft and round', upright:'stands up on two legs',
+    legs:'stands on long legs', quadruped:'walks on four legs', wings:'has wings',
+    tentacles:'has long, wavy arms', heads:'has more than one head', humanoid:'is shaped like a person',
+    'bug-wings':'looks like a bug with wings', armor:'has a hard shell'
   };
 
   function sizeLabel(heightM){
-    if(heightM < 0.3) return 'smaller than a house cat';
-    if(heightM < 0.6) return 'about knee-height on an adult';
-    if(heightM < 1.2) return 'roughly waist to chest height on an adult';
-    if(heightM < 2.0) return 'around the height of an adult human';
-    if(heightM < 4.0) return 'taller than most adult humans';
-    if(heightM < 8.0) return 'as tall as a small house';
-    return 'towering, taller than a bus';
+    if(heightM < 0.3) return 'is smaller than a cat';
+    if(heightM < 0.6) return 'is about as tall as your knee';
+    if(heightM < 1.2) return 'is about as tall as your tummy';
+    if(heightM < 2.0) return 'is about as tall as a grown-up';
+    if(heightM < 4.0) return 'is taller than a grown-up';
+    if(heightM < 8.0) return 'is as tall as a small house';
+    return 'is as big as a bus';
   }
 
   function buildAppearanceClues({ color, shape, heightM }){
     const clues = [];
-    if(color) clues.push(`Its primary colour is ${color}.`);
-    if(shape && SHAPE_LABELS[shape]) clues.push(`It has ${SHAPE_LABELS[shape]}.`);
-    if(typeof heightM === 'number' && !isNaN(heightM)) clues.push(`It is ${sizeLabel(heightM)}.`);
+    if(color) clues.push(`It is mostly ${color}.`);
+    if(shape && SHAPE_LABELS[shape]) clues.push(`It ${SHAPE_LABELS[shape]}.`);
+    if(typeof heightM === 'number' && !isNaN(heightM)) clues.push(`It ${sizeLabel(heightM)}.`);
     return clues.slice(0,3);
+  }
+
+  function escapeAttr(str){
+    return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  const SPEAKER_ICON_SVG = `<svg class="speaker-icon shrink-0" width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M5 9v6h4l5 5V4L9 9H5Z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+
+  function readAloudButtonHTML(text){
+    return `<button type="button" class="read-aloud-btn shrink-0" data-speak="${escapeAttr(text)}">${SPEAKER_ICON_SVG}<span class="read-aloud-label">Read Aloud</span></button>`;
   }
 
   function clueBoxHTML(clues, idAttr){
     if(!clues.length) return `<div ${idAttr ? `id="${idAttr}"` : ''} class="rounded-xl mt-3 px-3.5 py-3" style="border:1px solid var(--card-edge); background:var(--navy-800)"><p class="text-xs" style="color:var(--text-lo)">No appearance clues available.</p></div>`;
     return `
     <div ${idAttr ? `id="${idAttr}"` : ''} class="rounded-xl mt-3 px-3.5 py-3" style="border:1px solid var(--card-edge); background:var(--navy-800)">
-      <p class="text-[10px] uppercase tracking-wider font-extrabold mb-2" style="color:var(--gold)">Clue Phrases</p>
+      <div class="flex items-center justify-between mb-2 gap-2">
+        <p class="text-[10px] uppercase tracking-wider font-extrabold" style="color:var(--gold)">Clue Phrases</p>
+        ${readAloudButtonHTML(clues.join(' '))}
+      </div>
       <ol class="space-y-1.5">
         ${clues.map((c,i)=>`<li class="flex gap-2 text-xs" style="color:var(--text-hi)"><span class="font-extrabold shrink-0" style="color:var(--gold)">${i+1}.</span><span>${c}</span></li>`).join('')}
       </ol>
@@ -789,6 +893,7 @@
   async function handleRandomize(){
     if(isRolling) return;
     isRolling = true;
+    stopSpeaking();
     pullToken++;
     emptyState.classList.add('hidden');
     randomizeBtn.disabled = true;
@@ -837,6 +942,7 @@
   const pdxAbilityInfo = document.getElementById('pdxAbilityInfo');
   const pdxAbilityEffect = document.getElementById('pdxAbilityEffect');
   const pdxDesc = document.getElementById('pdxDesc');
+  const pdxReadDescBtn = document.getElementById('pdxReadDescBtn');
   const pdxStats = document.getElementById('pdxStats');
   const pdxStyle = document.getElementById('pdxStyle');
 
@@ -902,7 +1008,11 @@
 
     return {
       id,
-      name: formatSlug(p.name),
+      // Use the species name, not the pokemon variety name — many species'
+      // default variety carries a form suffix (e.g. "giratina-altered",
+      // "landorus-incarnate", "zygarde-50", "deoxys-normal") that would
+      // otherwise show a mismatched title vs. the plain name on the pull card.
+      name: formatSlug(s.name),
       types: types.map(t=> t.charAt(0).toUpperCase()+t.slice(1)),
       sprite: p.sprites?.other?.['official-artwork']?.front_default || spriteUrl(id),
       height: (p.height/10).toFixed(1),
@@ -954,6 +1064,7 @@
     pdxAbilityInfo.dataset.slug = detail.abilitySlug || '';
 
     pdxDesc.textContent = detail.description;
+    pdxReadDescBtn.dataset.speak = `${detail.name}. ${detail.description}`;
 
     pdxStats.innerHTML = detail.stats.map(s=>{
       const label = STAT_LABELS[s.stat.name] || s.stat.name;
@@ -981,6 +1092,7 @@
   }
 
   async function openPokedexModal(idx){
+    stopSpeaking();
     currentDetailIndex = idx;
     const mon = lastPicks[idx];
     if(!mon) return;
@@ -1002,6 +1114,7 @@
   }
 
   function closePokedexModal(){
+    stopSpeaking();
     pdxModal.classList.add('hidden');
     document.body.style.overflow = '';
   }
