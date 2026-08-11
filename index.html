@@ -140,9 +140,9 @@
   details[open] .chevron{ transform:rotate(180deg); }
 
   .pdx-open-btn{ transition:transform 200ms cubic-bezier(.34,1.56,.64,1), border-color 200ms ease, color 200ms ease; }
-  .pdx-open-btn:hover{ transform:translateY(-1px); border-color:var(--pdx-cyan); color:var(--pdx-cyan); }
+  .pdx-open-btn:hover{ transform:translateY(-1px); border-color:var(--pdx-cyan, #7fd8ff); color:var(--pdx-cyan, #7fd8ff); }
   .pdx-open-btn:active{ transform:translateY(0) scale(0.97); }
-  .pdx-open-btn:focus-visible{ outline:2px solid var(--pdx-cyan); outline-offset:2px; }
+  .pdx-open-btn:focus-visible{ outline:2px solid var(--pdx-cyan, #7fd8ff); outline-offset:2px; }
 
   /* ---- Pokédex showcase modal ---- */
   #pokedexModal{
@@ -161,14 +161,6 @@
       radial-gradient(ellipse 500px 400px at 90% 100%, rgba(122,214,255,0.08), transparent 60%),
       var(--pdx-bg);
   }
-  .pdx-nav-btn{
-    width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-    border:1px solid var(--pdx-edge); color:var(--pdx-cyan); background:rgba(122,214,255,0.06);
-    transition:transform 200ms cubic-bezier(.34,1.56,.64,1), background 200ms ease;
-  }
-  .pdx-nav-btn:hover{ background:rgba(122,214,255,0.16); transform:translateY(-1px); }
-  .pdx-nav-btn:active{ transform:scale(0.92); }
-  .pdx-nav-btn:focus-visible{ outline:2px solid var(--pdx-cyan); outline-offset:2px; }
 
   .pdx-label{ font-size:11px; text-transform:uppercase; letter-spacing:0.14em; color:var(--pdx-cyan); font-weight:800; }
   .pdx-sublabel{ font-size:11px; color:#7691a8; margin-bottom:2px; }
@@ -382,14 +374,8 @@
   <div class="relative h-full overflow-y-auto scrollbar-slim">
     <div class="max-w-[430px] mx-auto px-5 pt-6 pb-16">
 
-      <div class="flex items-center justify-between mb-3">
-        <button id="pdxPrev" type="button" class="pdx-nav-btn" aria-label="Previous">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
+      <div class="flex items-center justify-center mb-3">
         <button id="pdxClose" type="button" class="text-[11px] font-extrabold uppercase tracking-[0.2em]" style="color:var(--pdx-cyan)">Close</button>
-        <button id="pdxNext" type="button" class="pdx-nav-btn" aria-label="Next">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
       </div>
 
       <div class="text-center">
@@ -438,6 +424,11 @@
             <p id="pdxAbility" class="pdx-value"></p>
             <p id="pdxAbilityEffect" class="hidden text-xs mt-1.5 leading-relaxed" style="color:#a9c3d6"></p>
           </div>
+        </div>
+
+        <div class="pdx-panel">
+          <p class="pdx-label mb-3">Competitive Set</p>
+          <div id="pdxCompetitive"></div>
         </div>
 
         <div class="pdx-panel">
@@ -787,9 +778,9 @@
   }
 
   function clueBoxHTML(clues, idAttr){
-    if(!clues.length) return `<div ${idAttr ? `id="${idAttr}"` : ''} class="rounded-xl mt-3 px-3.5 py-3" style="border:1px solid var(--card-edge); background:var(--navy-800)"><p class="text-xs" style="color:var(--text-lo)">No appearance clues available.</p></div>`;
+    if(!clues.length) return `<div ${idAttr ? `id="${idAttr}"` : ''} class="rounded-xl px-3.5 py-3" style="border:1px solid var(--card-edge); background:var(--navy-800)"><p class="text-xs" style="color:var(--text-lo)">No appearance clues available.</p></div>`;
     return `
-    <div ${idAttr ? `id="${idAttr}"` : ''} class="rounded-xl mt-3 px-3.5 py-3" style="border:1px solid var(--card-edge); background:var(--navy-800)">
+    <div ${idAttr ? `id="${idAttr}"` : ''} class="rounded-xl px-3.5 py-3" style="border:1px solid var(--card-edge); background:var(--navy-800)">
       <div class="flex items-center justify-between mb-2 gap-2">
         <p class="text-[10px] uppercase tracking-wider font-extrabold" style="color:var(--gold)">Clue Phrases</p>
         ${readAloudButtonHTML(clues.join(' '))}
@@ -824,72 +815,56 @@
       return clueBoxHTML(buildAppearanceClues(mon));
     }
     loadLegendaryClues(mon.id, idx, pullToken);
-    return `<div id="clues-${idx}" class="rounded-xl mt-3 px-3.5 py-3" style="border:1px solid var(--card-edge); background:var(--navy-800)">
+    return `<div id="clues-${idx}" class="rounded-xl px-3.5 py-3" style="border:1px solid var(--card-edge); background:var(--navy-800)">
       <p class="text-[10px] uppercase tracking-wider font-extrabold mb-2" style="color:var(--gold)">Clue Phrases</p>
       <p class="text-xs" style="color:var(--text-lo)">Loading clues...</p>
     </div>`;
   }
 
-  function pokemonCardHTML(mon, delay, idx){
-    const categoryBadge = mon.category ? `<span class="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full" style="background:${mon.category === 'Mythical' ? 'linear-gradient(140deg, var(--holo-b), var(--holo-a))' : 'linear-gradient(140deg, var(--gold), var(--gold-dim))'}; color:#0b0e1c">${mon.category}</span>` : '';
-    const genLabel = mon.gen ? 'Gen ' + romanGen(mon.gen) : 'Unknown gen';
-    const sprite = mon.sprite || spriteUrl(mon.id);
+  function competitiveSetHTML(mon){
     const normalizedMoves = normalizeMoves(mon.moves);
     const movesHTML = normalizedMoves.length
       ? `<div class="space-y-1.5">${normalizedMoves.map(moveChip).join('')}</div>`
       : `<p class="text-xs" style="color:var(--text-lo)">No moveset data available.</p>`;
+    return `
+      ${mon.signature ? `
+      <div class="signature-glow rounded-xl px-3.5 py-2.5 mb-3">
+        <p class="text-[10px] uppercase tracking-wider font-extrabold mb-0.5" style="color:var(--gold)">Signature Move</p>
+        <p class="text-sm font-bold" style="color:#eaf6ff">${mon.signature}</p>
+      </div>` : ''}
+      <div class="flex flex-wrap gap-x-5 gap-y-1.5 text-xs mb-3">
+        <span style="color:var(--pdx-cyan-dim)">Item: <span class="font-bold" style="color:#eaf6ff">${mon.item}</span></span>
+        <span style="color:var(--pdx-cyan-dim)">Nature: <span class="font-bold" style="color:#eaf6ff">${mon.nature}</span></span>
+      </div>
+      <div>
+        <p class="text-[10px] uppercase tracking-wider font-extrabold mb-1.5" style="color:var(--pdx-cyan-dim)">Suggested Moveset</p>
+        ${movesHTML}
+      </div>`;
+  }
 
+  function pokemonCardHTML(mon, delay, idx){
+    const sprite = mon.sprite || spriteUrl(mon.id);
     return `
     <div class="card-surface rounded-3xl p-5 relative overflow-hidden reveal-in" style="animation-delay:${delay}ms">
       <div class="holo-sheen"></div>
       <div class="relative">
-        <div class="flex items-start justify-between mb-3">
-          <div class="flex items-center gap-2">
-            ${categoryBadge}
-            <span class="text-[10px] font-bold uppercase tracking-wider" style="color:var(--text-lo)">${genLabel}</span>
-          </div>
-          <span class="text-[11px] font-mono" style="color:var(--text-lo)">#${String(mon.id).padStart(4,'0')}</span>
-        </div>
+        ${cluesHTML(mon, idx)}
 
-        <div class="flex items-center gap-4 mb-4">
-          <img src="${sprite}" alt="${mon.name}" loading="lazy" class="w-24 h-24 sprite-glow shrink-0" onerror="this.style.opacity=0.15" />
-          <div class="min-w-0">
-            <h3 class="font-display text-lg leading-tight break-words" style="color:var(--text-hi)">${mon.name}</h3>
-            <div class="flex flex-wrap gap-1.5 mt-2">${typeBadges(mon.types)}</div>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-2 mb-4 text-xs" style="color:var(--text-lo)">
-          <span>Ability: <span class="font-bold" style="color:var(--text-hi)">${mon.ability}</span></span>
-        </div>
-
-        ${mon.signature ? `
-        <div class="signature-glow rounded-xl px-3.5 py-2.5 mb-4">
-          <p class="text-[10px] uppercase tracking-wider font-extrabold mb-0.5" style="color:var(--gold)">Signature Move</p>
-          <p class="text-sm font-bold" style="color:var(--text-hi)">${mon.signature}</p>
-        </div>` : ''}
-
-        <details class="rounded-xl" style="border:1px solid var(--card-edge); background:var(--navy-800)">
+        <details class="rounded-xl mt-3" style="border:1px solid var(--card-edge); background:var(--navy-800)">
           <summary class="flex items-center justify-between px-3.5 py-3">
-            <span class="text-xs font-extrabold uppercase tracking-wider" style="color:var(--text-hi)">Competitive Set</span>
+            <span class="text-xs font-extrabold uppercase tracking-wider" style="color:var(--text-hi)">More Clue</span>
             <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="var(--text-lo)" stroke-width="2" stroke-linecap="round"/></svg>
           </summary>
-          <div class="px-3.5 pb-4 pt-1 space-y-3">
-            <div class="flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
-              <span style="color:var(--text-lo)">Item: <span class="font-bold" style="color:var(--text-hi)">${mon.item}</span></span>
-              <span style="color:var(--text-lo)">Nature: <span class="font-bold" style="color:var(--text-hi)">${mon.nature}</span></span>
-            </div>
-            <div>
-              <p class="text-[10px] uppercase tracking-wider font-extrabold mb-1.5" style="color:var(--text-lo)">Suggested Moveset</p>
-              ${movesHTML}
+          <div class="px-3.5 pb-4 pt-1 flex items-center justify-center">
+            <div class="rounded-2xl p-4" style="background:radial-gradient(circle, rgba(255,255,255,0.07), transparent 70%);">
+              <img src="${sprite}" alt="Pokémon silhouette" loading="lazy" class="w-28 h-28" style="filter:brightness(0); opacity:0.92;" onerror="this.style.opacity=0.1" />
             </div>
           </div>
         </details>
 
-        ${cluesHTML(mon, idx)}
-
-        <button type="button" class="pdx-open-btn w-full mt-3 rounded-xl py-2.5 text-xs font-extrabold uppercase tracking-wider" data-idx="${idx}" style="border:1px solid var(--card-edge); color:var(--text-lo); background:transparent">
-          View Pokédex
+        <button type="button" class="pdx-open-btn w-full mt-3 rounded-xl py-2.5 text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2" data-idx="${idx}" style="border:1px solid var(--card-edge); color:var(--text-lo); background:transparent">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>
+          Reveal Pokémon
         </button>
       </div>
     </div>`;
@@ -957,6 +932,7 @@
   const pdxAbilityEffect = document.getElementById('pdxAbilityEffect');
   const pdxDesc = document.getElementById('pdxDesc');
   const pdxReadDescBtn = document.getElementById('pdxReadDescBtn');
+  const pdxCompetitive = document.getElementById('pdxCompetitive');
   const pdxStats = document.getElementById('pdxStats');
   const pdxStyle = document.getElementById('pdxStyle');
 
@@ -1118,6 +1094,7 @@
     pdxName.textContent = mon.name;
     pdxDexNo.textContent = `#${String(mon.id).padStart(4,'0')}`;
     pdxSprite.src = mon.sprite || spriteUrl(mon.id);
+    pdxCompetitive.innerHTML = competitiveSetHTML(mon);
 
     try{
       const detail = await fetchPokedexDetail(mon.id);
@@ -1140,14 +1117,6 @@
   });
 
   document.getElementById('pdxClose').addEventListener('click', closePokedexModal);
-  document.getElementById('pdxPrev').addEventListener('click', ()=>{
-    if(!lastPicks.length) return;
-    openPokedexModal((currentDetailIndex - 1 + lastPicks.length) % lastPicks.length);
-  });
-  document.getElementById('pdxNext').addEventListener('click', ()=>{
-    if(!lastPicks.length) return;
-    openPokedexModal((currentDetailIndex + 1) % lastPicks.length);
-  });
 
   pdxAbilityInfo.addEventListener('click', async ()=>{
     const slug = pdxAbilityInfo.dataset.slug;
