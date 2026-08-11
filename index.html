@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Poképull · Randomiser</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -511,23 +513,35 @@
 
   const ttsSupported = 'speechSynthesis' in window;
   let selectedVoice = null;
+  let voiceList = [];
+
+  const ALLOWED_VOICES = [
+    { name: 'Daniel', lang: 'en-GB' },
+    { name: 'Albert', lang: 'en-US' },
+    { name: 'Karen', lang: 'en-AU' },
+    { name: 'Samantha', lang: 'en-US' }
+  ];
 
   function populateVoices(){
-    const voices = window.speechSynthesis.getVoices();
-    if(!voices.length) return;
+    const allVoices = window.speechSynthesis.getVoices();
+    if(!allVoices.length) return;
+    let filtered = ALLOWED_VOICES
+      .map(target => allVoices.find(v => v.name === target.name && v.lang === target.lang))
+      .filter(Boolean);
+    if(!filtered.length) filtered = allVoices; // fallback if none of the 4 exist on this system
+    voiceList = filtered;
     const prevValue = voiceSelect.value;
-    voiceSelect.innerHTML = voices.map((v,i)=> `<option value="${i}">${v.name}${v.lang ? ` (${v.lang})` : ''}</option>`).join('');
-    const restoreIdx = prevValue !== '' && Number(prevValue) < voices.length ? Number(prevValue) : 0;
+    voiceSelect.innerHTML = voiceList.map((v,i)=> `<option value="${i}">${v.name}${v.lang ? ` (${v.lang})` : ''}</option>`).join('');
+    const restoreIdx = prevValue !== '' && Number(prevValue) < voiceList.length ? Number(prevValue) : 0;
     voiceSelect.value = String(restoreIdx);
-    selectedVoice = voices[restoreIdx] || null;
+    selectedVoice = voiceList[restoreIdx] || null;
   }
 
   if(ttsSupported){
     populateVoices();
     window.speechSynthesis.onvoiceschanged = populateVoices;
     voiceSelect.addEventListener('change', ()=>{
-      const voices = window.speechSynthesis.getVoices();
-      selectedVoice = voices[Number(voiceSelect.value)] || null;
+      selectedVoice = voiceList[Number(voiceSelect.value)] || null;
     });
   } else {
     voiceSection.classList.add('hidden');
