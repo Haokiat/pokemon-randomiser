@@ -5,7 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Poképull · Randomiser</title>
 <link rel="icon" type="image/png" href="favicon.png">
-<link rel="apple-touch-icon" href="favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#080a14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Poképull">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -718,10 +723,11 @@
         moves,
         color: species.color?.name || null,
         shape: species.shape?.name || null,
-        heightM: data.height/10
+        isLegendary: !!species.is_legendary,
+        isMythical: !!species.is_mythical
       };
     }catch(err){
-      return { id, name:'Unknown', types:['Normal'], gen:null, sprite: spriteUrl(id), category:null, signature:null, ability:'Unknown', item:'Leftovers', nature:'Serious', moves:[], color:null, shape:null, heightM:null };
+      return { id, name:'Unknown', types:['Normal'], gen:null, sprite: spriteUrl(id), category:null, signature:null, ability:'Unknown', item:'Leftovers', nature:'Serious', moves:[], color:null, shape:null, isLegendary:false, isMythical:false };
     }
   }
 
@@ -744,9 +750,9 @@
     return (moves || []).map(m=> typeof m === 'string' ? { name:m, type: MOVE_TYPES[m] || null } : m);
   }
 
-  // Physical-appearance clues only — colour, body shape, and size — sourced
-  // from PokeAPI's own species/pokemon data, never typing/ability/nature.
-  // Short, plain sentences: no flowery comparisons, no repeated stock phrases.
+  // Four fixed clues: primary colour, overall shape, Legendary/Mythical status,
+  // and the first letter of the name. Short, plain sentences — no flowery
+  // comparisons, no repeated stock phrases.
   const SHAPE_LABELS = {
     ball:'is shaped like a ball', squiggle:'has a long, thin body', fish:'is shaped like a fish',
     arms:'has big arms', blob:'has a soft, round body', upright:'stands on two legs',
@@ -755,12 +761,15 @@
     'bug-wings':'has insect wings', armor:'has a hard shell'
   };
 
-  function buildAppearanceClues({ color, shape, heightM }){
+  function buildAppearanceClues({ color, shape, isLegendary, isMythical, firstLetter }){
     const clues = [];
     if(color) clues.push(`It is mostly ${color}.`);
     if(shape && SHAPE_LABELS[shape]) clues.push(`It ${SHAPE_LABELS[shape]}.`);
-    if(typeof heightM === 'number' && !isNaN(heightM)) clues.push(`It is ${heightM.toFixed(1)} m tall.`);
-    return clues.slice(0,3);
+    if(isMythical) clues.push('It is a Mythical Pokémon.');
+    else if(isLegendary) clues.push('It is a Legendary Pokémon.');
+    else clues.push('It is not a Legendary or Mythical Pokémon.');
+    if(firstLetter) clues.push(`Its name starts with the letter ${firstLetter}.`);
+    return clues;
   }
 
   function escapeAttr(str){
@@ -789,28 +798,32 @@
 
   let pullToken = 0;
 
-  async function loadLegendaryClues(id, idx, token){
+  async function loadLegendaryClues(mon, idx, token){
+    const firstLetter = mon.name ? mon.name.charAt(0).toUpperCase() : null;
+    const isLegendary = mon.category === 'Legendary';
+    const isMythical = mon.category === 'Mythical';
     try{
-      const [p, s] = await Promise.all([
-        fetch(`https://pokeapi.co/api/v2/pokemon/${id}`).then(r=>r.json()),
-        fetch(`https://pokeapi.co/api/v2/pokemon-species/${id}`).then(r=>r.json())
-      ]);
+      const s = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${mon.id}`).then(r=>r.json());
       if(token !== pullToken) return;
-      const clues = buildAppearanceClues({ color: s.color?.name, shape: s.shape?.name, heightM: p.height/10 });
+      const clues = buildAppearanceClues({ color: s.color?.name, shape: s.shape?.name, isLegendary, isMythical, firstLetter });
       const el = document.getElementById(`clues-${idx}`);
       if(el) el.outerHTML = clueBoxHTML(clues, `clues-${idx}`);
     }catch(err){
       if(token !== pullToken) return;
+      // Colour/shape need the network, but status and first letter don't —
+      // still show those two rather than nothing.
+      const clues = buildAppearanceClues({ color:null, shape:null, isLegendary, isMythical, firstLetter });
       const el = document.getElementById(`clues-${idx}`);
-      if(el) el.outerHTML = clueBoxHTML([], `clues-${idx}`);
+      if(el) el.outerHTML = clueBoxHTML(clues, `clues-${idx}`);
     }
   }
 
   function cluesHTML(mon, idx){
-    if(mon.color || mon.shape || typeof mon.heightM === 'number'){
-      return clueBoxHTML(buildAppearanceClues(mon));
+    if('color' in mon){
+      const firstLetter = mon.name ? mon.name.charAt(0).toUpperCase() : null;
+      return clueBoxHTML(buildAppearanceClues({ ...mon, firstLetter }));
     }
-    loadLegendaryClues(mon.id, idx, pullToken);
+    loadLegendaryClues(mon, idx, pullToken);
     return `<div id="clues-${idx}" class="rounded-xl px-3.5 py-3" style="border:1px solid var(--card-edge); background:var(--navy-800)">
       <p class="text-[10px] uppercase tracking-wider font-extrabold mb-2" style="color:var(--gold)">Clue Phrases</p>
       <p class="text-xs" style="color:var(--text-lo)">Loading clues...</p>
