@@ -275,6 +275,7 @@
   .read-aloud-btn:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
   .read-aloud-btn.is-speaking{ background:var(--gold); color:#0b0e1c; }
   .read-aloud-btn.is-speaking .speaker-icon{ animation:pdxPulse 700ms ease-in-out infinite; }
+  .read-aloud-btn.icon-only{ padding:7px; }
   #pokedexModal .read-aloud-btn{ border-color:var(--pdx-cyan); color:var(--pdx-cyan); }
   #pokedexModal .read-aloud-btn.is-speaking{ background:var(--pdx-cyan); color:#08131c; }
 </style>
@@ -380,7 +381,12 @@
 
       <div class="text-center">
         <span id="pdxDexNo" class="text-[11px] font-mono" style="color:var(--pdx-cyan-dim)"></span>
-        <h2 id="pdxName" class="font-display text-[26px] leading-tight mt-1" style="color:#eaf6ff; text-shadow:0 0 18px rgba(122,214,255,0.35)"></h2>
+        <div class="flex items-center justify-center gap-2 mt-1">
+          <h2 id="pdxName" class="font-display text-[26px] leading-tight" style="color:#eaf6ff; text-shadow:0 0 18px rgba(122,214,255,0.35)"></h2>
+          <button id="pdxReadNameBtn" type="button" class="read-aloud-btn icon-only" aria-label="Read name aloud">
+            <svg class="speaker-icon shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M5 9v6h4l5 5V4L9 9H5Z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
       </div>
 
       <div class="pdx-ring-wrap">
@@ -740,30 +746,20 @@
 
   // Physical-appearance clues only — colour, body shape, and size — sourced
   // from PokeAPI's own species/pokemon data, never typing/ability/nature.
-  // Kept to short, simple words a young child could read or hear and understand.
+  // Short, plain sentences: no flowery comparisons, no repeated stock phrases.
   const SHAPE_LABELS = {
-    ball:'is round, like a ball', squiggle:'is long and wiggly, like a snake', fish:'looks like a fish',
-    arms:'has big arms', blob:'is soft and round', upright:'stands up on two legs',
-    legs:'stands on long legs', quadruped:'walks on four legs', wings:'has wings',
-    tentacles:'has long, wavy arms', heads:'has more than one head', humanoid:'is shaped like a person',
-    'bug-wings':'looks like a bug with wings', armor:'has a hard shell'
+    ball:'is shaped like a ball', squiggle:'has a long, thin body', fish:'is shaped like a fish',
+    arms:'has big arms', blob:'has a soft, round body', upright:'stands on two legs',
+    legs:'has long legs', quadruped:'walks on four legs', wings:'has wings',
+    tentacles:'has long arms', heads:'has more than one head', humanoid:'is shaped like a person',
+    'bug-wings':'has insect wings', armor:'has a hard shell'
   };
-
-  function sizeLabel(heightM){
-    if(heightM < 0.3) return 'is smaller than a cat';
-    if(heightM < 0.6) return 'is about as tall as your knee';
-    if(heightM < 1.2) return 'is about as tall as your tummy';
-    if(heightM < 2.0) return 'is about as tall as a grown-up';
-    if(heightM < 4.0) return 'is taller than a grown-up';
-    if(heightM < 8.0) return 'is as tall as a small house';
-    return 'is as big as a bus';
-  }
 
   function buildAppearanceClues({ color, shape, heightM }){
     const clues = [];
     if(color) clues.push(`It is mostly ${color}.`);
     if(shape && SHAPE_LABELS[shape]) clues.push(`It ${SHAPE_LABELS[shape]}.`);
-    if(typeof heightM === 'number' && !isNaN(heightM)) clues.push(`It ${sizeLabel(heightM)}.`);
+    if(typeof heightM === 'number' && !isNaN(heightM)) clues.push(`It is ${heightM.toFixed(1)} m tall.`);
     return clues.slice(0,3);
   }
 
@@ -932,6 +928,7 @@
   const pdxAbilityEffect = document.getElementById('pdxAbilityEffect');
   const pdxDesc = document.getElementById('pdxDesc');
   const pdxReadDescBtn = document.getElementById('pdxReadDescBtn');
+  const pdxReadNameBtn = document.getElementById('pdxReadNameBtn');
   const pdxCompetitive = document.getElementById('pdxCompetitive');
   const pdxStats = document.getElementById('pdxStats');
   const pdxStyle = document.getElementById('pdxStyle');
@@ -1029,6 +1026,7 @@
   function renderPokedexDetail(detail){
     pdxDexNo.textContent = `#${String(detail.id).padStart(4,'0')}`;
     pdxName.textContent = detail.name;
+    pdxReadNameBtn.dataset.speak = detail.name;
     pdxSprite.src = detail.sprite;
     pdxSprite.alt = detail.name;
 
@@ -1092,6 +1090,7 @@
     pdxContent.classList.add('hidden');
     pdxLoading.classList.remove('hidden');
     pdxName.textContent = mon.name;
+    pdxReadNameBtn.dataset.speak = mon.name;
     pdxDexNo.textContent = `#${String(mon.id).padStart(4,'0')}`;
     pdxSprite.src = mon.sprite || spriteUrl(mon.id);
     pdxCompetitive.innerHTML = competitiveSetHTML(mon);
