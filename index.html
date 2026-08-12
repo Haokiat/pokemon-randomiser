@@ -537,7 +537,7 @@
     let filtered = ALLOWED_VOICES
       .map(target => allVoices.find(v => v.name === target.name && v.lang === target.lang))
       .filter(Boolean);
-    if(!filtered.length) filtered = allVoices; // fallback if none of the 4 exist on this system
+    if(!filtered.length) filtered = allVoices; // fallback if none of the allowed voices exist on this system
     voiceList = filtered;
     const prevValue = voiceSelect.value;
     voiceSelect.innerHTML = voiceList.map((v,i)=> `<option value="${i}">${v.name}${v.lang ? ` (${v.lang})` : ''}</option>`).join('');
@@ -1165,10 +1165,12 @@
   let currentSpecies = null;
   let currentStyles = [];
   let currentDexId = null;
+  let modalToken = 0;
 
   async function jumpToStyle(idx){
     const style = currentStyles[idx];
     if(!style || !style.raw || !currentSpecies) return;
+    const token = modalToken;
     stopSpeaking();
     pdxStyle.querySelectorAll('.pdx-style-card').forEach(c=> c.classList.remove('is-selected'));
     const card = pdxStyle.querySelector(`.pdx-style-card[data-style-idx="${idx}"]`);
@@ -1180,6 +1182,9 @@
     try{
       const displayName = formatVarietyName(currentSpecies.name, style.raw.name);
       const detail = await buildFormDetail(currentDexId, style.raw, currentSpecies, displayName);
+      // The modal may have been closed and reopened for a different pick
+      // while this fetch was in flight — don't clobber the newer content.
+      if(token !== modalToken) return;
       renderPokedexTop(detail);
     }catch(err){
       // Leave the currently-displayed form as-is if the jump fails.
@@ -1222,6 +1227,7 @@
 
   async function openPokedexModal(idx){
     stopSpeaking();
+    modalToken++;
     currentDetailIndex = idx;
     const mon = lastPicks[idx];
     if(!mon) return;
