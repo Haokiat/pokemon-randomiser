@@ -252,10 +252,13 @@
 
   .pdx-style-card{
     min-width:118px; background:var(--pdx-panel); border:1px solid var(--pdx-edge); border-radius:18px;
-    padding:14px 10px; text-align:center; flex-shrink:0;
-    transition:transform 200ms cubic-bezier(.34,1.56,.64,1), border-color 200ms ease;
+    padding:14px 10px; text-align:center; flex-shrink:0; cursor:pointer;
+    transition:transform 200ms cubic-bezier(.34,1.56,.64,1), border-color 200ms ease, box-shadow 200ms ease;
   }
   .pdx-style-card:hover{ transform:translateY(-2px); border-color:var(--pdx-cyan); }
+  .pdx-style-card:active{ transform:translateY(0) scale(0.97); }
+  .pdx-style-card:focus-visible{ outline:2px solid var(--pdx-cyan); outline-offset:2px; }
+  .pdx-style-card.is-selected{ border-color:var(--pdx-cyan); box-shadow:0 0 0 1px var(--pdx-cyan), 0 8px 20px -8px rgba(122,214,255,0.5); }
   .pdx-style-ring{
     width:74px; height:74px; margin:0 auto 8px; border-radius:50%;
     border:2px solid var(--pdx-edge); display:flex; align-items:center; justify-content:center;
@@ -517,11 +520,15 @@
   let selectedVoice = null;
   let voiceList = [];
 
+  // "Albert" is one of macOS's novelty/character voices (deep, distorted) —
+  // swapped for standard, natural-sounding regional English voices instead.
   const ALLOWED_VOICES = [
     { name: 'Daniel', lang: 'en-GB' },
-    { name: 'Albert', lang: 'en-US' },
+    { name: 'Samantha', lang: 'en-US' },
     { name: 'Karen', lang: 'en-AU' },
-    { name: 'Samantha', lang: 'en-US' }
+    { name: 'Moira', lang: 'en-IE' },
+    { name: 'Tessa', lang: 'en-ZA' },
+    { name: 'Rishi', lang: 'en-IN' }
   ];
 
   function populateVoices(){
@@ -751,24 +758,72 @@
   }
 
   // Four fixed clues: primary colour, overall shape, Legendary/Mythical status,
-  // and the first letter of the name. Short, plain sentences — no flowery
-  // comparisons, no repeated stock phrases.
+  // and the first letter of the name. Each category has a generous pool of
+  // short, plain phrasings, picked at random, so the wording stays varied
+  // instead of the same shape or colour always reading the same sentence.
   const SHAPE_LABELS = {
-    ball:'is shaped like a ball', squiggle:'has a long, thin body', fish:'is shaped like a fish',
-    arms:'has big arms', blob:'has a soft, round body', upright:'stands on two legs',
-    legs:'has long legs', quadruped:'walks on four legs', wings:'has wings',
-    tentacles:'has long arms', heads:'has more than one head', humanoid:'is shaped like a person',
-    'bug-wings':'has insect wings', armor:'has a hard shell'
+    ball: ['is shaped like a ball', 'is round all over', 'looks like a sphere', 'has a round, curled-up body', 'is nearly a perfect circle'],
+    squiggle: ['has a long, thin body', 'has a snake-like body', 'is long and narrow', 'has a slender, winding body', 'is long and curvy'],
+    fish: ['is shaped like a fish', 'has a fish-like body', 'looks like a fish', 'has a sleek, fish-like shape', 'has fins and a fish-like body'],
+    arms: ['has big arms', 'has strong, large arms', 'has noticeably big arms', 'has thick, muscular arms', 'has oversized arms'],
+    blob: ['has a soft, round body', 'looks soft and round', 'has a blobby, round shape', 'has a squishy, round body', 'looks squashy and round'],
+    upright: ['stands on two legs', 'walks upright', 'stands up tall on two legs', 'has an upright, standing posture', 'walks on two legs like a person'],
+    legs: ['has long legs', 'stands on tall, thin legs', 'has very long legs', 'has long, slender legs', 'is propped up on tall legs'],
+    quadruped: ['walks on four legs', 'moves on all fours', 'has four legs like most animals', 'gets around on four legs', 'has four sturdy legs'],
+    wings: ['has wings', 'has a pair of wings', 'has wings on its back', 'has large wings', 'has wings for flying'],
+    tentacles: ['has long, trailing arms', 'has thin, dangling arms', 'has long arms that hang down', 'has wavy, rope-like arms', 'has long, flowing limbs'],
+    heads: ['has more than one head', 'has two or more heads', 'has multiple heads', 'has several heads', 'has more than one face'],
+    humanoid: ['is shaped like a person', 'has a person-like body', 'stands with a human-like shape', 'has arms and legs like a person', 'is built like a person'],
+    'bug-wings': ['has insect wings', 'has thin, bug-like wings', 'has wings like an insect', 'has delicate, papery wings', 'has wings like a beetle'],
+    armor: ['has a hard shell', 'is covered by a hard shell', 'has tough, armour-like skin', 'has a rock-hard body', 'is protected by a tough shell']
   };
+
+  const COLOUR_TEMPLATES = [
+    c => `It is mostly ${c}.`,
+    c => `Its body is mainly ${c}.`,
+    c => `Most of its body is ${c}.`,
+    c => `You will see a lot of ${c} on it.`,
+    c => `A lot of its body is ${c}.`,
+    c => `It has ${c} colouring.`,
+    c => `Its skin is mostly ${c}.`,
+    c => `Its main colour is ${c}.`,
+    c => `It is covered in ${c}.`,
+    c => `At a glance, it looks ${c}.`
+  ];
+
+  const LEGENDARY_TEMPLATES = [
+    'It is a Legendary Pokémon.', 'This Pokémon is Legendary.',
+    'It is one of the Legendary Pokémon.', 'This is a rare Legendary Pokémon.'
+  ];
+  const MYTHICAL_TEMPLATES = [
+    'It is a Mythical Pokémon.', 'This Pokémon is Mythical.',
+    'It is one of the Mythical Pokémon.', 'This is a rare Mythical Pokémon.'
+  ];
+  const REGULAR_TEMPLATES = [
+    'It is not a Legendary or Mythical Pokémon.', 'It is neither Legendary nor Mythical.',
+    'This is an ordinary Pokémon, not Legendary or Mythical.', 'It does not have Legendary or Mythical status.'
+  ];
+
+  const LETTER_TEMPLATES = [
+    L => `Its name starts with the letter ${L}.`,
+    L => `The first letter of its name is ${L}.`,
+    L => `Its name begins with ${L}.`,
+    L => `Spell its name and it starts with ${L}.`,
+    L => `The letter ${L} begins its name.`
+  ];
+
+  function pickOne(arr){
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
 
   function buildAppearanceClues({ color, shape, isLegendary, isMythical, firstLetter }){
     const clues = [];
-    if(color) clues.push(`It is mostly ${color}.`);
-    if(shape && SHAPE_LABELS[shape]) clues.push(`It ${SHAPE_LABELS[shape]}.`);
-    if(isMythical) clues.push('It is a Mythical Pokémon.');
-    else if(isLegendary) clues.push('It is a Legendary Pokémon.');
-    else clues.push('It is not a Legendary or Mythical Pokémon.');
-    if(firstLetter) clues.push(`Its name starts with the letter ${firstLetter}.`);
+    if(color) clues.push(pickOne(COLOUR_TEMPLATES)(color));
+    if(shape && SHAPE_LABELS[shape]) clues.push(`It ${pickOne(SHAPE_LABELS[shape])}.`);
+    if(isMythical) clues.push(pickOne(MYTHICAL_TEMPLATES));
+    else if(isLegendary) clues.push(pickOne(LEGENDARY_TEMPLATES));
+    else clues.push(pickOne(REGULAR_TEMPLATES));
+    if(firstLetter) clues.push(pickOne(LETTER_TEMPLATES)(firstLetter));
     return clues;
   }
 
@@ -960,30 +1015,74 @@
     return `${baseDisplay} (${parts.map(w=> w.charAt(0).toUpperCase()+w.slice(1)).join(' ')})`;
   }
 
+  // Type damage-relations are identical for every Pokémon that shares a
+  // type, so cache them by type name — switching between a species' forms
+  // (which often share at least one type) rarely needs a fresh fetch.
+  const typeRelationsCache = {};
+
+  async function getTypeDamageRelations(typeName){
+    if(typeRelationsCache[typeName]) return typeRelationsCache[typeName];
+    const td = await fetch(`https://pokeapi.co/api/v2/type/${typeName}`).then(r=>r.json());
+    typeRelationsCache[typeName] = td.damage_relations;
+    return td.damage_relations;
+  }
+
+  async function computeWeaknesses(types){
+    const multipliers = {};
+    ALL_TYPES.forEach(t=> multipliers[t] = 1);
+    const relations = await Promise.all(types.map(getTypeDamageRelations));
+    relations.forEach(dr=>{
+      dr.double_damage_from.forEach(t=> multipliers[t.name] *= 2);
+      dr.half_damage_from.forEach(t=> multipliers[t.name] *= 0.5);
+      dr.no_damage_from.forEach(t=> multipliers[t.name] *= 0);
+    });
+    return Object.entries(multipliers)
+      .filter(([,m])=> m > 1)
+      .sort((a,b)=> b[1]-a[1])
+      .map(([t])=> t.charAt(0).toUpperCase()+t.slice(1));
+  }
+
+  // Builds the render-ready detail object for a single form. `p` is a raw
+  // /pokemon/{..} response (the base form, or an alternate variety's own
+  // data when jumping to a different style) and `s` is the shared species
+  // response (genus/description/gender are species-level, not per-form).
+  async function buildFormDetail(dexId, p, s, displayName){
+    const types = p.types.map(t=> t.type.name);
+    const weaknesses = await computeWeaknesses(types);
+    const genus = (s.genera.find(g=> g.language.name === 'en') || {}).genus || 'Pokémon';
+    const flavorRaw = (s.flavor_text_entries.find(f=> f.language.name === 'en') || {}).flavor_text || '';
+    const flavorClean = flavorRaw.replace(/[\f\n\r]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const description = flavorClean.split(/(?<=[.!?])\s+/).slice(0,2).join(' ');
+    const nonHidden = p.abilities.find(a=> !a.is_hidden) || p.abilities[0];
+
+    return {
+      id: dexId,
+      name: displayName,
+      types: types.map(t=> t.charAt(0).toUpperCase()+t.slice(1)),
+      sprite: p.sprites?.other?.['official-artwork']?.front_default || spriteUrl(dexId),
+      height: (p.height/10).toFixed(1),
+      weight: (p.weight/10).toFixed(1),
+      category: genus,
+      genderRate: s.gender_rate,
+      abilitySlug: nonHidden ? nonHidden.ability.name : null,
+      abilityName: nonHidden ? formatSlug(nonHidden.ability.name) : 'Unknown',
+      description: description || 'No Pokédex entry available.',
+      stats: p.stats,
+      weaknesses
+    };
+  }
+
   async function fetchPokedexDetail(id){
     const [p, s] = await Promise.all([
       fetch(`https://pokeapi.co/api/v2/pokemon/${id}`).then(r=>r.json()),
       fetch(`https://pokeapi.co/api/v2/pokemon-species/${id}`).then(r=>r.json())
     ]);
 
-    const types = p.types.map(t=> t.type.name);
-    const typeDetails = await Promise.all(types.map(t=> fetch(`https://pokeapi.co/api/v2/type/${t}`).then(r=>r.json())));
-    const multipliers = {};
-    ALL_TYPES.forEach(t=> multipliers[t] = 1);
-    typeDetails.forEach(td=>{
-      td.damage_relations.double_damage_from.forEach(t=> multipliers[t.name] *= 2);
-      td.damage_relations.half_damage_from.forEach(t=> multipliers[t.name] *= 0.5);
-      td.damage_relations.no_damage_from.forEach(t=> multipliers[t.name] *= 0);
-    });
-    const weaknesses = Object.entries(multipliers)
-      .filter(([,m])=> m > 1)
-      .sort((a,b)=> b[1]-a[1])
-      .map(([t])=> t.charAt(0).toUpperCase()+t.slice(1));
-
-    const genus = (s.genera.find(g=> g.language.name === 'en') || {}).genus || 'Pokémon';
-    const flavorRaw = (s.flavor_text_entries.find(f=> f.language.name === 'en') || {}).flavor_text || '';
-    const flavorClean = flavorRaw.replace(/[\f\n\r]+/g, ' ').replace(/\s+/g, ' ').trim();
-    const description = flavorClean.split(/(?<=[.!?])\s+/).slice(0,2).join(' ');
+    // Use the species name, not the pokemon variety name — many species'
+    // default variety carries a form suffix (e.g. "giratina-altered",
+    // "landorus-incarnate", "zygarde-50", "deoxys-normal") that would
+    // otherwise show a mismatched title vs. the plain name on the pull card.
+    const detail = await buildFormDetail(id, p, s, formatSlug(s.name));
 
     const varieties = s.varieties.filter(v=>{
       const slug = v.pokemon.name;
@@ -999,33 +1098,15 @@
         return {
           name: formatVarietyName(s.name, v.pokemon.name),
           types: vd.types.map(t=> t.type.name.charAt(0).toUpperCase()+t.type.name.slice(1)),
-          sprite: vd.sprites?.other?.['official-artwork']?.front_default || vd.sprites?.front_default || spriteUrl(id)
+          sprite: vd.sprites?.other?.['official-artwork']?.front_default || vd.sprites?.front_default || spriteUrl(id),
+          raw: vd
         };
       }catch(err){ return null; }
     }))).filter(Boolean);
 
-    const nonHidden = p.abilities.find(a=> !a.is_hidden) || p.abilities[0];
-
-    return {
-      id,
-      // Use the species name, not the pokemon variety name — many species'
-      // default variety carries a form suffix (e.g. "giratina-altered",
-      // "landorus-incarnate", "zygarde-50", "deoxys-normal") that would
-      // otherwise show a mismatched title vs. the plain name on the pull card.
-      name: formatSlug(s.name),
-      types: types.map(t=> t.charAt(0).toUpperCase()+t.slice(1)),
-      sprite: p.sprites?.other?.['official-artwork']?.front_default || spriteUrl(id),
-      height: (p.height/10).toFixed(1),
-      weight: (p.weight/10).toFixed(1),
-      category: genus,
-      genderRate: s.gender_rate,
-      abilitySlug: nonHidden ? nonHidden.ability.name : null,
-      abilityName: nonHidden ? formatSlug(nonHidden.ability.name) : 'Unknown',
-      description: description || 'No Pokédex entry available.',
-      stats: p.stats,
-      weaknesses,
-      styles
-    };
+    detail.styles = styles;
+    detail.species = s;
+    return detail;
   }
 
   function genderHTML(rate){
@@ -1036,7 +1117,9 @@
     return parts.join(' <span style="color:var(--text-lo)">/</span> ');
   }
 
-  function renderPokedexDetail(detail){
+  // Updates everything except the Style row itself — reused both for the
+  // initial load and for jumping to a different form/style.
+  function renderPokedexTop(detail){
     pdxDexNo.textContent = `#${String(detail.id).padStart(4,'0')}`;
     pdxName.textContent = detail.name;
     pdxReadNameBtn.dataset.speak = detail.name;
@@ -1077,10 +1160,55 @@
           <span class="pdx-stat-num">${s.base_stat}</span>
         </div>`;
     }).join('');
+  }
+
+  let currentSpecies = null;
+  let currentStyles = [];
+  let currentDexId = null;
+
+  async function jumpToStyle(idx){
+    const style = currentStyles[idx];
+    if(!style || !style.raw || !currentSpecies) return;
+    stopSpeaking();
+    pdxStyle.querySelectorAll('.pdx-style-card').forEach(c=> c.classList.remove('is-selected'));
+    const card = pdxStyle.querySelector(`.pdx-style-card[data-style-idx="${idx}"]`);
+    if(card) card.classList.add('is-selected');
+
+    const scrollable = document.querySelector('#pokedexModal .overflow-y-auto');
+    if(scrollable) scrollable.scrollTo({ top: 0, behavior: 'smooth' });
+
+    try{
+      const displayName = formatVarietyName(currentSpecies.name, style.raw.name);
+      const detail = await buildFormDetail(currentDexId, style.raw, currentSpecies, displayName);
+      renderPokedexTop(detail);
+    }catch(err){
+      // Leave the currently-displayed form as-is if the jump fails.
+    }
+  }
+
+  pdxStyle.addEventListener('click', e=>{
+    const card = e.target.closest('.pdx-style-card');
+    if(!card) return;
+    jumpToStyle(Number(card.dataset.styleIdx));
+  });
+  pdxStyle.addEventListener('keydown', e=>{
+    if(e.key !== 'Enter' && e.key !== ' ') return;
+    const card = e.target.closest('.pdx-style-card');
+    if(!card) return;
+    e.preventDefault();
+    jumpToStyle(Number(card.dataset.styleIdx));
+  });
+
+  function renderPokedexDetail(detail){
+    renderPokedexTop(detail);
+
+    currentSpecies = detail.species;
+    currentStyles = detail.styles;
+    currentDexId = detail.id;
 
     pdxStyle.innerHTML = detail.styles.length
-      ? detail.styles.map(v=>`
-        <div class="pdx-style-card">
+      ? detail.styles.map((v,i)=>`
+        <div class="pdx-style-card" data-style-idx="${i}" role="button" tabindex="0">
           <div class="pdx-style-ring"><img src="${v.sprite}" alt="${v.name}" class="w-14 h-14" onerror="this.style.opacity=0.15" /></div>
           <p class="text-[10px] font-mono mb-1" style="color:var(--pdx-cyan-dim)">#${String(detail.id).padStart(4,'0')}</p>
           <p class="text-xs font-extrabold mb-1.5" style="color:#eaf6ff">${v.name}</p>
